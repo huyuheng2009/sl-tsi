@@ -1,0 +1,534 @@
+package com.yogapay.couriertsi.api;
+
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import javax.annotation.Resource;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import org.springframework.context.annotation.Scope;
+import org.springframework.data.domain.Page;
+import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+
+import com.yogapay.couriertsi.domain.BossUser;
+import com.yogapay.couriertsi.domain.OrderInfo;
+import com.yogapay.couriertsi.domain.OrderPayinfo;
+import com.yogapay.couriertsi.domain.OrderReamrk;
+import com.yogapay.couriertsi.domain.OrderRoute;
+import com.yogapay.couriertsi.domain.RateConfig;
+import com.yogapay.couriertsi.domain.RoadConfig;
+import com.yogapay.couriertsi.domain.Route;
+import com.yogapay.couriertsi.domain.Substation;
+import com.yogapay.couriertsi.domain.SubstationDistance;
+import com.yogapay.couriertsi.domain.SubstationMerchant;
+import com.yogapay.couriertsi.dto.BatchSettle;
+import com.yogapay.couriertsi.services.BossUserService;
+import com.yogapay.couriertsi.services.CourierPayService;
+import com.yogapay.couriertsi.services.CustomService;
+import com.yogapay.couriertsi.services.OrderAddrService;
+import com.yogapay.couriertsi.services.OrderPayinfoService;
+import com.yogapay.couriertsi.services.OrderRemarkService;
+import com.yogapay.couriertsi.services.OrderRouteService;
+import com.yogapay.couriertsi.services.OrderService;
+import com.yogapay.couriertsi.services.PushMsgService;
+import com.yogapay.couriertsi.services.RateConfigService;
+import com.yogapay.couriertsi.services.RoadConfigService;
+import com.yogapay.couriertsi.services.RoadFreightService;
+import com.yogapay.couriertsi.services.RouteService;
+import com.yogapay.couriertsi.services.SubstationDistanceService;
+import com.yogapay.couriertsi.services.SubstationMerchantService;
+import com.yogapay.couriertsi.services.SubstationService;
+import com.yogapay.couriertsi.utils.CommonResponse;
+import com.yogapay.couriertsi.utils.DateUtils;
+import com.yogapay.couriertsi.utils.JsonUtil;
+import com.yogapay.couriertsi.utils.StringUtils;
+
+
+@Controller
+@RequestMapping(value="/userinfo")
+@Scope("prototype")
+public class UserInfoApi extends BaseApi{
+	@Resource
+	private OrderService orderService ;
+	@Resource
+	private BossUserService bossUserService ;
+	@Resource
+	private OrderRemarkService orderRemarkService ;
+	@Resource
+	private CustomService customService ;
+	@Resource
+	private OrderAddrService orderAddrService ;
+	@Resource SubstationService substationService ;
+	@Resource RouteService routeService ;
+	@Resource RoadConfigService roadConfigService ;
+	@Resource SubstationDistanceService substationDistanceService ;
+	@Resource RoadFreightService roadFreightService ;
+	@Resource RateConfigService rateConfigService ;
+	@Resource CourierPayService courierPayService ;
+	@Resource PushMsgService pushMsgService ;
+	@Resource
+	OrderRouteService orderRouteService ;
+	@Resource
+	private OrderPayinfoService orderPayinfoService ;
+	@Resource
+	private SubstationMerchantService substationMerchantService ;
+	
+
+	@RequestMapping(value = "index")	
+	public void index(@RequestParam Map<String,String> params,HttpServletRequest request,HttpServletResponse response,
+			@RequestParam(value = "page_no", defaultValue = "1") int cpage){
+		try {
+			Map<String, String> ret = validateRequest(request,new String[] {}, true);
+			if ("TRUE".equals(ret.get("isSuccess"))) {
+				String userName = ret.get("userNo") ;
+			    BossUser bossUser =	bossUserService.getByUserName(userName) ;
+                 Map<String, Object> user_info = new HashMap<String, Object>() ;
+                 user_info.put("real_name", bossUser.getRealName()) ;
+                 Date nowDate = new Date() ;
+                 Map<String, Object> user_countMap = orderService.getUserCount(userName, nowDate, nowDate) ;
+                 user_info.put("take_count", user_countMap.get("take_count")) ;
+                 user_info.put("send_count", user_countMap.get("send_count")) ;
+                 user_info.put("unsettle_count", courierPayService.unsettleCount(userName)) ;
+                 user_info.put("unread_count", pushMsgService.unreadCount(userName)) ;
+               model.put("user_info", user_info) ;
+				render(JSON_TYPE, CommonResponse.respSuccessJson("",model, params.get("reqNo")), response);   			
+			}else {
+				log.info("validate false!!!!");
+				render(JSON_TYPE, CommonResponse.respFailJson(ret.get("respCode"), ret.get("respMsg"), params.get("reqNo")),response);
+			}		
+		} catch (Exception e) {
+			e.printStackTrace();
+			render(JSON_TYPE, CommonResponse.respFailJson("9000","服务器异常", params.get("reqNo")), response);
+		}
+	}
+
+	@RequestMapping(value = "settlelist")	
+	public void settlelist(@RequestParam Map<String,String> params,HttpServletRequest request,HttpServletResponse response,
+			@RequestParam(value = "page_no", defaultValue = "1") int cpage){
+		try {
+			Map<String, String> ret = validateRequest(request,new String[] {"settle_type"}, true);
+			if ("TRUE".equals(ret.get("isSuccess"))) {
+				String userName = ret.get("userNo") ;
+				 Integer settle_type = 1 ;
+				 Integer is_pay = 0 ;
+				  if ("2".equals(params.get("settle_type"))) {
+					settle_type = 2 ;
+					is_pay =1 ;
+				 }
+			    Date begin_date = null ;
+			    Date end_date = null ;
+			    try {
+			    	if (!StringUtils.isEmptyWithTrim(params.get("order_begin_date"))) {
+						begin_date = DateUtils.parseDate(params.get("order_begin_date"),"yyyy-MM-dd") ;
+					}
+				} catch (Exception e) {
+					begin_date = null ;
+				}
+			    try {
+			    	if (!StringUtils.isEmptyWithTrim(params.get("order_end_date"))) {
+			    		end_date = DateUtils.parseDate(params.get("order_end_date"),"yyyy-MM-dd") ;
+					}
+				} catch (Exception e) {
+					end_date = null ;
+				}
+			    if (settle_type==2&&begin_date==null) {
+					begin_date = DateUtils.addDate(new Date(), -30, 0, 0) ;
+				}
+				  
+				Page<Map<String, Object>> pageList = courierPayService.settlelist(userName,is_pay,begin_date,end_date,getPageRequest(cpage)) ;
+				Map<String, Object> settle_count = courierPayService.settleCount(userName, is_pay, begin_date, end_date) ;
+				Map<String, Object> page_info = new HashMap<String, Object>() ;
+				page_info.put("data", pageList.getContent()) ;
+				page_info.put("page_no", pageList.getNumber()) ;
+				page_info.put("is_last", pageList.isLastPage()) ;
+               
+				model.put("page_info", page_info) ;
+				model.put("settle_count", settle_count) ;
+				render(JSON_TYPE, CommonResponse.respSuccessJson("",model, params.get("reqNo")), response);   			
+			}else {
+				log.info("validate false!!!!");
+				render(JSON_TYPE, CommonResponse.respFailJson(ret.get("respCode"), ret.get("respMsg"), params.get("reqNo")),response);
+			}		
+		} catch (Exception e) {
+			e.printStackTrace();
+			render(JSON_TYPE, CommonResponse.respFailJson("9000","服务器异常", params.get("reqNo")), response);
+		}
+	}
+
+	
+	@RequestMapping(value = "msglist")	
+	public void msglist(@RequestParam Map<String,String> params,HttpServletRequest request,HttpServletResponse response,
+			@RequestParam(value = "page_no", defaultValue = "1") int cpage){
+		try {
+			Map<String, String> ret = validateRequest(request,new String[] {}, true);
+			if ("TRUE".equals(ret.get("isSuccess"))) {
+				String userName = ret.get("userNo") ;
+				Page<Map<String, Object>> pageList = pushMsgService.listAll(userName, getPageRequest(cpage)) ;
+				Map<String, Object> page_info = new HashMap<String, Object>() ;
+				page_info.put("data", pageList.getContent()) ;
+				page_info.put("page_no", pageList.getNumber()) ;
+				page_info.put("is_last", pageList.isLastPage()) ;
+				model.put("page_info", page_info) ;
+				render(JSON_TYPE, CommonResponse.respSuccessJson("",model, params.get("reqNo")), response);   			
+			}else {
+				log.info("validate false!!!!");
+				render(JSON_TYPE, CommonResponse.respFailJson(ret.get("respCode"), ret.get("respMsg"), params.get("reqNo")),response);
+			}		
+		} catch (Exception e) {
+			e.printStackTrace();
+			render(JSON_TYPE, CommonResponse.respFailJson("9000","服务器异常", params.get("reqNo")), response);
+		}
+	}
+	
+	@RequestMapping(value = "msgread")	
+	public void msgread(@RequestParam Map<String,String> params,HttpServletRequest request,HttpServletResponse response,
+			@RequestParam(value = "page_no", defaultValue = "1") int cpage){
+		try {
+			Map<String, String> ret = validateRequest(request,new String[] {"msg_ids"}, true);
+			if ("TRUE".equals(ret.get("isSuccess"))) {
+				String userName = ret.get("userNo") ;
+
+				String[] ids = params.get("msg_ids").split(",") ;
+				String idString = "0" ;
+				for (int i = 0; i < ids.length; i++) {
+					if (ids[i].length()>0) {
+						idString+=","+ids[i] ;
+					}
+				}
+				pushMsgService.msgread(userName, idString);
+				render(JSON_TYPE, CommonResponse.respSuccessJson("","更新成功", params.get("reqNo")), response);   			
+			}else {
+				log.info("validate false!!!!");
+				render(JSON_TYPE, CommonResponse.respFailJson(ret.get("respCode"), ret.get("respMsg"), params.get("reqNo")),response);
+			}		
+		} catch (Exception e) {
+			e.printStackTrace();
+			render(JSON_TYPE, CommonResponse.respFailJson("9000","服务器异常", params.get("reqNo")), response);
+		}
+	}
+	
+	@RequestMapping(value = "msgdel")	
+	public void msgdel(@RequestParam Map<String,String> params,HttpServletRequest request,HttpServletResponse response,
+			@RequestParam(value = "page_no", defaultValue = "1") int cpage){
+		try {
+			Map<String, String> ret = validateRequest(request,new String[] {"msg_ids"}, true);
+			if ("TRUE".equals(ret.get("isSuccess"))) {
+				String userName = ret.get("userNo") ;
+
+				String[] ids = params.get("msg_ids").split(",") ;
+				String idString = "0" ;
+				for (int i = 0; i < ids.length; i++) {
+					if (ids[i].length()>0) {
+						idString+=","+ids[i] ;
+					}
+				}
+				pushMsgService.msgdel(userName, idString);
+				render(JSON_TYPE, CommonResponse.respSuccessJson("","更新成功", params.get("reqNo")), response);   			
+			}else {
+				log.info("validate false!!!!");
+				render(JSON_TYPE, CommonResponse.respFailJson(ret.get("respCode"), ret.get("respMsg"), params.get("reqNo")),response);
+			}		
+		} catch (Exception e) {
+			e.printStackTrace();
+			render(JSON_TYPE, CommonResponse.respFailJson("9000","服务器异常", params.get("reqNo")), response);
+		}
+	}
+	
+	
+	
+	@RequestMapping(value = "upwd")	
+	public void upwd(@RequestParam Map<String,String> params,HttpServletRequest request,HttpServletResponse response,
+			@RequestParam(value = "page_no", defaultValue = "1") int cpage){
+		try {
+			Map<String, String> ret = validateRequest(request,new String[] {"oldPassWord","nwPassWord"}, true);
+			if ("TRUE".equals(ret.get("isSuccess"))) {
+				String userName = ret.get("userNo") ;
+                BossUser bossUser = bossUserService.getByPwd(userName, params.get("oldPassWord")) ;
+                if (bossUser == null) {
+					render(JSON_TYPE, CommonResponse.respFailJson("9002","旧密码错误", params.get("reqNo")), response);
+					return ;
+				}
+                bossUserService.upwd(userName, params.get("nwPassWord"));
+                userSessionService.expirySession(request.getHeader("sessionNO")) ;
+				render(JSON_TYPE, CommonResponse.respSuccessJson("","修改成功", params.get("reqNo")), response);   			
+			}else {
+				log.info("validate false!!!!");
+				render(JSON_TYPE, CommonResponse.respFailJson(ret.get("respCode"), ret.get("respMsg"), params.get("reqNo")),response);
+			}		
+		} catch (Exception e) {
+			e.printStackTrace();
+			render(JSON_TYPE, CommonResponse.respFailJson("9000","服务器异常", params.get("reqNo")), response);
+		}
+	}
+	
+	
+	@RequestMapping(value = "batchsettle")	
+	public void batchsettle(@RequestParam Map<String,String> params,HttpServletRequest request,HttpServletResponse response,
+			@RequestParam(value = "page_no", defaultValue = "1") int cpage){
+		try {
+			Map<String, String> ret = validateRequest(request,new String[] {"settle_ids"}, true);
+			if ("TRUE".equals(ret.get("isSuccess"))) {
+				String userName = ret.get("userNo") ;
+				
+				Map<String, Object> payinfo = new HashMap<String, Object>() ;
+                Date nowDate = new Date() ;
+
+            	String[] ids = params.get("settle_ids").split(",") ;
+				String idString = "0" ;
+				for (int i = 0; i < ids.length; i++) {
+					if (ids[i].length()>0) {
+						idString+=","+ids[i] ;
+					}
+				}
+                
+                if (courierPayService.isSettle(idString)) {
+                	 render(JSON_TYPE, CommonResponse.respFailJson("9999","结算错误，包含有已结算的id", params.get("reqNo")), response);
+					    return ;
+				}
+                
+                String merchantId = "" ;
+				Substation substation = substationService.getByLevel(1) ;
+                   if (substation==null) {
+                   	   render(JSON_TYPE, CommonResponse.respFailJson("9999","总部网点未设定", params.get("reqNo")), response);
+   					    return ;
+					}
+                   SubstationMerchant substationMerchant = substationMerchantService.getBySubno(substation.getSubstationNo()) ;
+                   if (substationMerchant==null) {
+                	    render(JSON_TYPE, CommonResponse.respFailJson("9999","无法结算，总部网点未绑定商户号", params.get("reqNo")), response);
+  					    return ;
+				   }
+                   String goodsName = "批量结算" ;
+                   merchantId = substationMerchant.getMerchantNo() ;
+                   
+                   
+                   Map<String, String> tempMerchant = new HashMap<String, String>() ;// 缓存商户id
+                   List<OrderRoute> orderRoutes = new ArrayList<OrderRoute>() ;
+                   Map<String, Integer> distMap = new HashMap<String, Integer>() ;   //分商户map
+                   List<Map<String, Object>> distMerchant = new ArrayList<Map<String,Object>>() ;
+                   String merchantId1 = "" ;
+                   String merchantId2 = "" ;
+                   String merchantId5 = "" ;
+                   String merchantId6 = "" ;
+
+				 
+				   Integer amount = 0 ;
+				   double fee =  0.0  ;
+
+					List<BatchSettle> batchSettleList = courierPayService.batchSettleList(userName, idString) ;
+					String errCode = "00" ;
+					for (BatchSettle settle:batchSettleList) {
+						int revMoney = (int) Math.round(settle.getRevMoney()*100) ;
+						amount+=revMoney ;
+						if (settle.getFreight()>0.01) {
+							
+							if (tempMerchant.containsKey(settle.getSub1())) {
+								merchantId1 = tempMerchant.get(settle.getSub1()) ;
+							}else {
+								  substationMerchant = substationMerchantService.getBySubno(settle.getSub1()) ;
+				                   if (substationMerchant==null) {
+				               	      errCode = "路线网点未绑定商户号" ;
+				               	      break ;
+								   }
+				                   merchantId1 = substationMerchant.getMerchantNo() ;
+				                   tempMerchant.put(settle.getSub1(), merchantId1) ;
+							}
+							 
+							if (tempMerchant.containsKey(settle.getSub2())) {
+								merchantId2 = tempMerchant.get(settle.getSub2()) ;
+							}else {
+								  substationMerchant = substationMerchantService.getBySubno(settle.getSub2()) ;
+				                   if (substationMerchant==null) {
+				               	      errCode = "路线网点未绑定商户号" ;
+				               	      break ;
+								   }
+				                   merchantId2 = substationMerchant.getMerchantNo() ;
+				                   tempMerchant.put(settle.getSub2(), merchantId2) ;
+							}
+							
+							if (tempMerchant.containsKey(settle.getSub5())) {
+								merchantId5 = tempMerchant.get(settle.getSub5()) ;
+							}else {
+								  substationMerchant = substationMerchantService.getBySubno(settle.getSub5()) ;
+				                   if (substationMerchant==null) {
+				               	      errCode = "路线网点未绑定商户号" ;
+				               	      break ;
+								   }
+				                   merchantId5 = substationMerchant.getMerchantNo() ;
+				                   tempMerchant.put(settle.getSub5(), merchantId5) ;
+							}
+							
+							if (tempMerchant.containsKey(settle.getSub6())) {
+								merchantId6 = tempMerchant.get(settle.getSub6()) ;
+							}else {
+								  substationMerchant = substationMerchantService.getBySubno(settle.getSub6()) ;
+				                   if (substationMerchant==null) {
+				               	      errCode = "路线网点未绑定商户号" ;
+				               	      break ;
+								   }
+				                   merchantId6 = substationMerchant.getMerchantNo() ;
+				                   tempMerchant.put(settle.getSub6(), merchantId6) ;
+							}
+							
+							
+							 fee =  settle.getFreight()*6/100000.0 ;   
+							  double s = settle.getFreight()-settle.getRoadCostTo()-settle.getRoadCostFrom()-settle.getRailCost() ;
+			                   if (settle.getBehalf()<0.01) {
+								  s-=fee ;
+							   }
+			                  if (s<0.01) {
+			                	  errCode = "未知错误" ;
+			               	      break ;
+							  }
+			                  
+			                  double sub1_profit = s*0.03 ;
+			                  double sub2_profit = s*0.02 ;
+			                  double sub5_profit = s*0.01 ;
+			                  double sub6_profit = s*0.02 ;
+			                  double sub_normal_profit = s-sub1_profit-sub2_profit-sub5_profit-sub6_profit ;
+			                 
+			                  OrderRoute orderRoute = new OrderRoute() ;
+			                  orderRoute.setOrderNo(settle.getOrderNo());
+			                  orderRoute.setSubNormalProfit(sub_normal_profit);
+			                  orderRoute.setSub1Profit(sub1_profit);
+			                  orderRoute.setSub2Profit(sub2_profit);
+			                  orderRoute.setSub5Profit(sub5_profit);
+			                  orderRoute.setSub6Profit(sub6_profit);
+			                  orderRoutes.add(orderRoute) ;
+
+			                  
+			                  int profit1 = (int)Math.round(sub1_profit*100) ;
+			                  int profit2 = (int)Math.round(sub2_profit*100) ;
+			                  int profit5 = (int)Math.round(sub5_profit*100) ;
+			                  int profit6 = (int)Math.round(sub6_profit*100) ;
+			                  
+			                  
+			                  if (distMap.containsKey(merchantId1)) {
+			                	  int p = distMap.get(merchantId1) ;
+			                	  distMap.put(merchantId1, profit1+p) ;
+							  }else {
+								  distMap.put(merchantId1, profit1) ;
+							   }
+			                  
+			                  if (distMap.containsKey(merchantId2)) {
+			                	  int p = distMap.get(merchantId2) ;
+			                	  distMap.put(merchantId2, profit2+p) ;
+							  }else {
+								  distMap.put(merchantId2, profit2) ;
+							   }
+			                  
+			                  if (distMap.containsKey(merchantId5)) {
+			                	  int p = distMap.get(merchantId5) ;
+			                	  distMap.put(merchantId5, profit5+p) ;
+							  }else {
+								  distMap.put(merchantId5, profit5) ;
+							   }
+			                  
+			                  if (distMap.containsKey(merchantId6)) {
+			                	  int p = distMap.get(merchantId6) ;
+			                	  distMap.put(merchantId6, profit6+p) ;
+							  }else {
+								  distMap.put(merchantId6, profit6) ;
+							   }
+							
+						} //freght>0
+					}   //for
+		                   
+		            if (!errCode.equals("00")) {
+		            	 render(JSON_TYPE, CommonResponse.respFailJson("9999",errCode, params.get("reqNo")), response);
+	  					  return ;
+					}  
+		                 for (String key : distMap.keySet()) {
+		                	 Map<String, Object> map = new HashMap<String, Object>() ;
+			                  map.put("merchantId",key) ;
+			                  map.put("amount", distMap.get(key)) ;
+			                  distMerchant.add(map) ; 
+
+		            	  }
+					
+					  String payNo = sequenceService.getNextVal("pay_no") ;
+	                  OrderPayinfo orderPayinfo = new OrderPayinfo() ;
+	                  orderPayinfo.setAmount(amount);
+	                  orderPayinfo.setCreateTime(nowDate);
+	                  orderPayinfo.setType(3);
+	                  orderPayinfo.setOrgId(configInfo.getOrg_id());
+	                  fee =  amount*6/100000.0 ;   
+	                  int f = (int) Math.round(fee*100.0) ;
+	                  orderPayinfo.setFee(f);
+	                  orderPayinfo.setPayNo(payNo);
+	                  String p = "slapi";
+	                  orderPayinfo.setParams(p);
+	                   com.yogapay.couriertsi.pay.OrderInfo o = new com.yogapay.couriertsi.pay.OrderInfo() ;
+	                   o.setAmount(String.valueOf(amount));
+	          		   o.setOrderId(String.valueOf(payNo));
+	          		   o.setParams(p);
+	          		   String orderMsg = res(JsonUtil.toJson(o), configInfo.getApp_public_key()) ;
+	          		  
+	                   String resp ="orderId="+payNo+"&amount="+amount+"&orgId="+configInfo.getOrg_id()+"&distMerchant="+JsonUtil.toJson(distMerchant)
+	                   		+ "&merchantId="+merchantId+"&goodsName="+goodsName+"&orderMsg="+orderMsg;   
+	                   orderPayinfo.setResp(resp);
+	                   
+	                   orderPayinfoService.save(orderPayinfo) ;
+	                   courierPayService.updatePayNo(idString, payNo);
+	                   
+	                    for (OrderRoute orderRoute:orderRoutes) {
+	                	   orderRouteService.upFreightProfitByNo(orderRoute);
+					    }
+	                   
+	                   payinfo.put("pay_no", payNo) ;
+	                   payinfo.put("pay_param", resp) ;
+                       model.put("payinfo", payinfo) ;
+                render(JSON_TYPE, CommonResponse.respSuccessJson("",model, params.get("reqNo")), response);  		
+			}else {
+				log.info("validate false!!!!");
+				render(JSON_TYPE, CommonResponse.respFailJson(ret.get("respCode"), ret.get("respMsg"), params.get("reqNo")),response);
+			}		
+		} catch (Exception e) {
+			e.printStackTrace();
+			render(JSON_TYPE, CommonResponse.respFailJson("9000","服务器异常", params.get("reqNo")), response);
+		}
+	}
+	
+	
+	@RequestMapping(value = "nonepay")	
+	public void nonepay(@RequestParam Map<String,String> params,HttpServletRequest request,HttpServletResponse response,
+			@RequestParam(value = "page_no", defaultValue = "1") int cpage){
+		try {
+			Map<String, String> ret = validateRequest(request,new String[] {"pay_no"}, true);
+			if ("TRUE".equals(ret.get("isSuccess"))) {
+				String userName = ret.get("userNo") ;
+                  
+				OrderPayinfo orderPayinfo = orderPayinfoService.getByPayNo(params.get("pay_no")) ;
+				if (orderPayinfo==null) {
+					 render(JSON_TYPE, CommonResponse.respFailJson("9999","pay_no错误", params.get("reqNo")), response);
+ 					  return ;
+				}
+				if (StringUtils.isNotEmptyWithTrim(orderPayinfo.getNoticeNo())) {
+					  render(JSON_TYPE, CommonResponse.respFailJson("9999","无法撤销", params.get("reqNo")), response);
+					  return ;
+				}
+				courierPayService.nonePayNo(params.get("pay_no"));
+				
+				render(JSON_TYPE, CommonResponse.respSuccessJson("","撤销成功", params.get("reqNo")), response);   			
+			}else {
+				log.info("validate false!!!!");
+				render(JSON_TYPE, CommonResponse.respFailJson(ret.get("respCode"), ret.get("respMsg"), params.get("reqNo")),response);
+			}		
+		} catch (Exception e) {
+			e.printStackTrace();
+			render(JSON_TYPE, CommonResponse.respFailJson("9000","服务器异常", params.get("reqNo")), response);
+		}
+	}
+
+	
+}
+
+
+
+
+

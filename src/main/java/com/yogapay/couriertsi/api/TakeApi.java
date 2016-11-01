@@ -1,0 +1,60 @@
+package com.yogapay.couriertsi.api;
+
+import java.util.HashMap;
+import java.util.Map;
+
+import javax.annotation.Resource;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import org.springframework.context.annotation.Scope;
+import org.springframework.data.domain.Page;
+import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+
+import com.yogapay.couriertsi.domain.BossUser;
+import com.yogapay.couriertsi.services.BossUserService;
+import com.yogapay.couriertsi.services.OrderService;
+import com.yogapay.couriertsi.utils.CommonResponse;
+
+
+@Controller
+@RequestMapping(value="/take")
+@Scope("prototype")
+public class TakeApi extends BaseApi{
+	@Resource
+	private OrderService orderService ;
+	@Resource
+	private BossUserService bossUserService ;
+	
+
+	@RequestMapping(value = "takelist")	
+	public void takelist(@RequestParam Map<String,String> params,HttpServletRequest request,HttpServletResponse response,
+			@RequestParam(value = "page_no", defaultValue = "1") int cpage){
+		try {
+			Map<String, String> ret = validateRequest(request,new String[] {}, true);
+			if ("TRUE".equals(ret.get("isSuccess"))) {
+				String userName = ret.get("userNo") ;
+				Page<Map<String, Object>> pageList = orderService.takelist(userName, getPageRequest(cpage)) ;
+				Map<String, Object> page_info = new HashMap<String, Object>() ;
+				page_info.put("data", pageList.getContent()) ;
+				page_info.put("page_no", pageList.getNumber()) ;
+				page_info.put("is_last", pageList.isLastPage()) ;
+               model.put("page_info", page_info) ;
+				render(JSON_TYPE, CommonResponse.respSuccessJson("",model, params.get("reqNo")), response);   			
+			}else {
+				log.info("validate false!!!!");
+				render(JSON_TYPE, CommonResponse.respFailJson(ret.get("respCode"), ret.get("respMsg"), params.get("reqNo")),response);
+			}		
+		} catch (Exception e) {
+			e.printStackTrace();
+			render(JSON_TYPE, CommonResponse.respFailJson("9000","服务器异常", params.get("reqNo")), response);
+		}
+	}
+
+
+
+}
+
+

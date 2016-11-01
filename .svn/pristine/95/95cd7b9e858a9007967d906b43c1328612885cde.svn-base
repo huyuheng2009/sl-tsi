@@ -1,0 +1,46 @@
+package com.yogapay.couriertsi.services;
+
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+
+import javax.annotation.Resource;
+
+import org.springframework.stereotype.Service;
+
+import com.yogapay.couriertsi.domain.PackConfig;
+import com.yogapay.couriertsi.utils.Dao;
+
+/**
+ * 用户service
+ * @author 
+ *
+ */
+@Service
+public class OrderAddrService {
+
+	@Resource
+	private Dao dao ;
+
+	
+	public List<Map<String, Object>> getBySendName(String sendName) throws SQLException {
+		String sql = "select distinct d.send_name,d.send_card,d.send_tell,d.send_province_id,d.send_city_id,"
+                     +"d.send_area_id,d.send_street_id,d.send_address,d.send_detail "
+		             +" from order_addr d where d.send_name=? limit 0,50";
+		List<Object> list = new ArrayList<Object>();
+		list.add(sendName) ;
+		return dao.find( sql, list.toArray()) ;
+	}
+
+	
+	public List<Map<String, Object>> getBySendTell(String sendTell) throws SQLException {
+		String sql = "select distinct d.send_name,d.send_card,d.send_tell,d.send_province_id,d.send_city_id,"
+                     +"d.send_area_id,d.send_street_id,d.send_address,d.send_detail "
+		             +" from order_addr d where d.send_tell=? limit 0,50";
+		List<Object> list = new ArrayList<Object>();
+		list.add(sendTell) ;
+		return dao.find( sql, list.toArray()) ;
+	}
+
+}

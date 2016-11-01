@@ -1,0 +1,58 @@
+package com.yogapay.couriertsi.utils;
+
+import java.util.HashMap;
+import java.util.Map;
+
+import com.yogapay.couriertsi.utils.http.HttpUtils;
+
+public class Kyfw12306Util {
+    
+	public static float simpleGet(String weight,String itemName,String sendSataion,String revStation)  {
+		System.out.println("weight"+weight);
+		System.out.println("itemName"+itemName);
+		System.out.println("sendSataion"+sendSataion);
+		System.out.println("revStation"+revStation);
+		 String url = "http://hyfw.12306.cn/gateway/hywx/TrainWebClient/yfss.action" ;
+		 Map<String, String> params = new HashMap<String, String>() ;
+		 params.put("yfss.ysfs", "2") ;
+		 params.put("yfss.hzpm", itemName) ;
+		 params.put("yfss.fzhzzm", sendSataion) ;
+		 params.put("yfss.dzhzzm", revStation) ;
+		 params.put("yfss.hwds", weight) ;
+		 params.put("yfss.qhlc", "") ;
+		 params.put("yfss.shlc", "") ;
+		 HttpUtils httpUtils = new HttpUtils() ;
+		 String json = "{\"zfy\":\"\",\"zlc\":\"\",\"success\":true,\"ydqx\":\"天\"}";
+		try {
+			json = httpUtils.post(url, params);
+		} catch (Exception e) {
+			e.printStackTrace();
+			json = "{\"zfy\":\"\",\"zlc\":\"\",\"success\":true,\"ydqx\":\"天\"}";
+		}
+		 System.out.println(json);
+		 Map<String, Object> retMap = null ;
+		 try {
+			retMap = JsonUtil.getMapFromJson(json) ;
+		} catch (Exception e) {
+			e.printStackTrace();
+			json = "{\"zfy\":\"\",\"zlc\":\"\",\"success\":true,\"ydqx\":\"天\"}";
+		}
+		 float ret = 0 ;
+		 boolean success  = false ;
+		 String zfy = "0" ;
+		 if (retMap!=null&&retMap.get("success")!=null) {
+			  success  = (Boolean) retMap.get("success") ;
+			  if (success) {
+				  zfy = (String) retMap.get("zfy") ;
+			 }
+		 }
+		 System.out.println(zfy);
+		return Float.valueOf(zfy) ;
+	}
+
+	
+	public static void main(String [] args) throws Exception {
+		System.out.println(simpleGet("668.0", "鲜花", "鸡西", "哈尔滨")); 
+	}
+	
+}

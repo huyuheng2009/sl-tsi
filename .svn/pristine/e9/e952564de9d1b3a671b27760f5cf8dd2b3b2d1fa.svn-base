@@ -1,0 +1,150 @@
+package com.yogapay.couriertsi.services;
+
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.List;
+import java.util.Map;
+
+import javax.annotation.Resource;
+
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.stereotype.Service;
+
+import com.yogapay.couriertsi.domain.CourierPay;
+import com.yogapay.couriertsi.domain.OrderAddr;
+import com.yogapay.couriertsi.domain.PackConfig;
+import com.yogapay.couriertsi.domain.Route;
+import com.yogapay.couriertsi.dto.BatchSettle;
+import com.yogapay.couriertsi.utils.Dao;
+import com.yogapay.couriertsi.utils.DateUtils;
+
+/**
+ * 用户service
+ * @author 
+ *
+ */
+@Service
+public class CourierPayService {
+
+	@Resource
+	private Dao dao ;
+
+	
+	public long save(CourierPay courierPay) throws SQLException {
+		String sql = "insert into courier_pay(courier_no,rev_money,pay_money,order_id,create_time,pay_serno,is_pay,"
+				   + "`type`,`freight`,insured_fee,behalf)  values (?,?,?,?,?,?,?,?,?,?,?) ";
+		List<Object> list = new ArrayList<Object>();
+		list.add(courierPay.getCourierNo());
+		list.add(courierPay.getRevMoney());
+		list.add(courierPay.getPayMoney());
+		list.add(courierPay.getOrderId());
+		list.add(DateUtils.formatDate(courierPay.getCreateTime()));
+		list.add(courierPay.getPaySerno());
+		list.add(courierPay.getIsPay());
+		list.add(courierPay.getType());
+		list.add(courierPay.getFreight());
+		list.add(courierPay.getInsuredFee());
+		list.add(courierPay.getBehalf());
+		 return dao.updateGetID(sql, list) ;
+	}
+	
+	public Integer unsettleCount(String userName) throws SQLException {
+		String sql = "select count(0) AS unsettle_count from courier_pay p where p.courier_no=? and p.is_pay=0";
+		List<Object> list = new ArrayList<Object>();
+		list.add(userName) ;
+		return Integer.valueOf(dao.findFirst(sql, list.toArray()).get("unsettle_count").toString()) ;
+	}
+	
+	public float unsettleMoney(String userName) throws SQLException {
+		String sql = "select IFNULL(sum(pay_money),0) AS unsettle_money from courier_pay p where p.courier_no=? and p.is_pay=0";
+		List<Object> list = new ArrayList<Object>();
+		list.add(userName) ;
+		return Float.valueOf(dao.findFirst(sql, list.toArray()).get("unsettle_money").toString()) ;
+	}
+	
+
+
+	public Page<Map<String, Object>> settlelist(String userName,
+			Integer settle_type, Date begin_date, Date end_date,
+			PageRequest pageRequest) {
+		String sql = "select p.id AS settle_id,p.create_time as order_time,DATE_FORMAT(p.create_time,'%Y-%m-%d') as order_date,o.goods_name,o.order_no,"
+                +"(p.freight+p.insured_fee) as total_freight,p.behalf,p.`type` as order_type,p.is_pay as settle_type"
+                +" from courier_pay p left join order_info o on p.order_id=o.id where p.`is_pay`=? and p.courier_no=?  " ;
+	List<Object> list = new ArrayList<Object>();
+	list.add(settle_type) ;
+	list.add(userName);
+	if (begin_date!=null) {
+		sql+=" and DATE_FORMAT(p.create_time,'%Y-%m-%d')=? " ;
+		list.add(DateUtils.formatDate(begin_date,"yyyy-MM-dd")) ;
+	}
+	if (end_date!=null) {
+		sql+=" and DATE_FORMAT(p.create_time,'%Y-%m-%d')=? " ;
+		list.add(DateUtils.formatDate(end_date,"yyyy-MM-dd")) ;
+	}
+	sql += " order by p.id desc " ;
+	return dao.find(sql, list.toArray(),pageRequest) ;
+	}
+	
+	
+	public Map<String, Object> settleCount(String userName,
+			Integer settle_type, Date begin_date, Date end_date) throws SQLException {
+		String sql = "select count(0) AS total_count,IFNULL(sum(p.freight+p.insured_fee),0) as total_freight,IFNULL(sum(p.behalf),0) AS total_behalf"
+                +" from courier_pay p where p.`is_pay`=? and p.courier_no=?  " ;
+	List<Object> list = new ArrayList<Object>();
+	list.add(settle_type) ;
+	list.add(userName);
+	if (begin_date!=null) {
+		sql+=" and DATE_FORMAT(p.create_time,'%Y-%m-%d')=? " ;
+		list.add(DateUtils.formatDate(begin_date,"yyyy-MM-dd")) ;
+	}
+	if (end_date!=null) {
+		sql+=" and DATE_FORMAT(p.create_time,'%Y-%m-%d')=? " ;
+		list.add(DateUtils.formatDate(end_date,"yyyy-MM-dd")) ;
+	}
+	  return dao.findFirst(sql, list.toArray()) ;
+	}
+	
+	 //判断是否含有已结算的，有返回true
+	public boolean isSettle(String ids) throws NumberFormatException, SQLException {
+		String sql = "select count(0) AS settled from courier_pay c where  c.id in ("+ids+")" + " and c.is_pay=1" ;
+		List<Object> list = new ArrayList<Object>();
+		Integer settled = Integer.valueOf(dao.findFirst(sql, list.toArray()).get("settled").toString()) ;
+		if (settled>0) {
+			return true ;
+		}
+		return false ;
+	}
+	
+	public List<BatchSettle> batchSettleList(String userName,String ids) throws SQLException {
+		StringBuffer sqlBuffer = new StringBuffer() ;
+		sqlBuffer.append("select c.order_id,sum(c.rev_money) AS rev_money,sum(c.freight) AS freight,sum(c.behalf) AS behalf,")
+		         .append("o.road_cost_from,o.road_cost_to,o.rail_cost,o.order_no,r.sub1,r.sub2,r.sub3,r.sub4,r.sub5,r.sub6")
+		         .append(" from courier_pay c left join order_info o on c.order_id=o.id left join order_route r on o.order_no=r.order_no")
+		         .append(" where c.courier_no=? and c.id in ("+ids+")" + " group by c.order_id") ;
+      	List<Object> list = new ArrayList<Object>();
+		list.add(userName) ;
+		return dao.find(BatchSettle.class,sqlBuffer.toString(), list.toArray()) ;
+	}	
+	
+	
+
+	public void updatePayNo(String ids,String payNo) throws NumberFormatException, SQLException {
+		String sql = "update courier_pay set pay_serno=?,is_pay=2 where  id in ("+ids+")";
+		List<Object> list = new ArrayList<Object>();
+		list.add(payNo);
+		dao.updateGetID(sql, list) ;
+	}
+	
+	
+	public void updatePayStatus(String payNo,int isPay,Date pay_time) throws NumberFormatException, SQLException {
+		String sql = "update courier_pay set is_pay=?,pay_time=? where pay_serno=?";
+		List<Object> list = new ArrayList<Object>();
+		list.add(isPay) ;
+		list.add(DateUtils.formatDate(pay_time)) ;
+		list.add(payNo);
+		dao.updateGetID(sql, list) ;
+	}
+
+}

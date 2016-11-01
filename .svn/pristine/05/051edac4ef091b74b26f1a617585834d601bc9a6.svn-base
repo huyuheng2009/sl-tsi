@@ -1,0 +1,85 @@
+package com.yogapay.couriertsi.services;
+
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.List;
+import java.util.Map;
+
+import javax.annotation.Resource;
+
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.stereotype.Service;
+
+import com.yogapay.couriertsi.domain.CourierPay;
+import com.yogapay.couriertsi.domain.OrderAddr;
+import com.yogapay.couriertsi.domain.PackConfig;
+import com.yogapay.couriertsi.domain.Route;
+import com.yogapay.couriertsi.utils.Dao;
+import com.yogapay.couriertsi.utils.DateUtils;
+
+/**
+ * 用户service
+ * @author 
+ *
+ */
+@Service
+public class CourierPayService {
+
+	@Resource
+	private Dao dao ;
+
+	
+	public long save(CourierPay courierPay) throws SQLException {
+		String sql = "insert into courier_pay(courier_no,rev_money,pay_money,order_id,create_time,pay_serno,is_pay,"
+				   + "`type`,`freight`,insured_fee,behalf)  values (?,?,?,?,?,?,?,?,?,?,?,?) ";
+		List<Object> list = new ArrayList<Object>();
+		list.add(courierPay.getCourierNo());
+		list.add(courierPay.getRevMoney());
+		list.add(courierPay.getPayMoney());
+		list.add(courierPay.getOrderId());
+		list.add(DateUtils.formatDate(courierPay.getCreateTime()));
+		list.add(courierPay.getPaySerno());
+		list.add(courierPay.getIsPay());
+		list.add(courierPay.getType());
+		list.add(courierPay.getFreight());
+		list.add(courierPay.getInsuredFee());
+		list.add(courierPay.getBehalf());
+		 return dao.updateGetID(sql, list) ;
+	}
+	
+	public Integer unsettleCount(String userName) throws SQLException {
+		String sql = "select count(0) AS unsettle_count from courier_pay p where p.courier_no=? and p.is_pay=0";
+		List<Object> list = new ArrayList<Object>();
+		list.add(userName) ;
+		return Integer.valueOf(dao.findFirst(sql, list.toArray()).get("unsettle_count").toString()) ;
+	}
+	
+
+
+	public Page<Map<String, Object>> settlelist(String userName,
+			Integer settle_type, Date begin_date, Date end_date,
+			PageRequest pageRequest) {
+		String sql = "select p.id AS settle_id,p.create_time as order_time,DATE_FORMAT(p.create_time,'%Y-%m-%d') as order_date,o.goods_name,o.order_no,"
+                +"(p.freight+p.insured_fee) as total_freight,p.behalf,p.`type` as order_type,p.is_pay as settle_type"
+                +" from courier_pay p left join order_info o on p.order_id=o.id where p.`type`=? and p.courier_no=?  " ;
+	List<Object> list = new ArrayList<Object>();
+	list.add(settle_type) ;
+	list.add(userName);
+	if (begin_date!=null) {
+		sql+=" and DATE_FORMAT(p.create_time,'%Y-%m-%d')=? " ;
+		list.add(DateUtils.formatDate(begin_date,"yyyy-MM-dd")) ;
+	}
+	if (end_date!=null) {
+		sql+=" and DATE_FORMAT(p.create_time,'%Y-%m-%d')=? " ;
+		list.add(DateUtils.formatDate(end_date,"yyyy-MM-dd")) ;
+	}
+	sql += " order by p.id desc " ;
+	return dao.find(sql, list.toArray(),pageRequest) ;
+	}
+	
+	
+	
+
+}

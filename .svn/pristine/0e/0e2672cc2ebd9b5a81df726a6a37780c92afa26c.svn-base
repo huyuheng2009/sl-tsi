@@ -1,0 +1,390 @@
+package com.yogapay.couriertsi.services;
+
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import javax.annotation.Resource;
+
+import net.sf.ehcache.search.expression.Or;
+
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.stereotype.Service;
+
+import com.yogapay.couriertsi.domain.OrderAddr;
+import com.yogapay.couriertsi.domain.OrderInfo;
+import com.yogapay.couriertsi.utils.Dao;
+import com.yogapay.couriertsi.utils.DateUtils;
+
+/**
+ * 用户service
+ * @author 
+ *
+ */
+@Service
+public class OrderService {
+
+	@Resource
+	private Dao dao ;
+
+	
+	
+	public OrderInfo getById(String orderId) throws SQLException {
+		String sql = "select o.* from order_info o where o.id=? ";
+	    List<Object> list = new ArrayList<Object>();
+	    list.add(orderId);
+	    return dao.findFirst(OrderInfo.class, sql, list.toArray()) ;
+	}
+	
+	
+	public OrderInfo getByOrderNo(String orderNo) throws SQLException {
+		String sql = "select o.* from order_info o where o.order_no=? ";
+	    List<Object> list = new ArrayList<Object>();
+	    list.add(orderNo);
+	    return dao.findFirst(OrderInfo.class, sql, list.toArray()) ;
+	}
+	
+	public Page<Map<String, Object>> acptlist(String sno,PageRequest pageRequest) throws SQLException {
+		String sql = "select o.id as order_id,concat(d.send_detail,d.send_address) AS send_addr,concat(d.rev_detail,d.rev_address) AS rev_addr,"
+                     +" o.create_time AS order_time,o.goods_name "
+                     +" from order_info o   left join order_addr d on o.id=d.order_id  left join order_assign a on o.id=a.order_id "
+                     +" where o.assign_status=1 and  a.is_rev=0  and a.`status`=1 and (o.`status`=1 or o.`status`=6) and a.sno=? order by o.id desc ";
+		List<Object> list = new ArrayList<Object>();
+		list.add(sno);
+		return dao.find(sql, list.toArray(),pageRequest) ;
+	}
+	
+	public Page<Map<String, Object>> search(String sno,String keyval,PageRequest pageRequest) throws SQLException {
+		String sql = "select o.id as order_id,concat(d.send_detail,d.send_address) AS send_addr,concat(d.rev_detail,d.rev_address) AS rev_addr,"
+                     +" o.create_time AS order_time,o.goods_name "
+                     +" from order_info o   left join order_addr d on o.id=d.order_id  left join order_assign a on o.id=a.order_id "
+                     +" where o.assign_status=1 and  a.is_rev=0  and a.`status`=1 and (o.`status`=1 or o.`status`=6) and a.sno=? "
+                     +" and (d.send_name like '%"+keyval+"%' or d.send_tell like '%"+keyval+"%') order by o.id desc ";
+		List<Object> list = new ArrayList<Object>();
+		list.add(sno);
+		return dao.find(sql, list.toArray(),pageRequest) ;
+	}
+	
+	
+	public Map<String, Object> getAcptByOrderId(String sno,String orderId) throws SQLException {
+		String sql = "select a.*  from order_assign a left join order_info o on a.order_id=o.id where o.assign_status=1 and a.sno=? and a.order_id=? and a.is_rev=0 and a.`status`=1";
+		List<Object> list = new ArrayList<Object>();
+		list.add(sno);
+		list.add(orderId);
+		return dao.findFirst(sql, list.toArray()) ;
+	}
+	
+	public Map<String, Object> getAcptByUserName(String userName,String orderId,String is_rev) throws SQLException {
+		String sql = "select *  from order_assign where courier_no=? and order_id=? and is_rev="+is_rev;
+		List<Object> list = new ArrayList<Object>();
+		list.add(userName);
+		list.add(orderId);
+		return dao.findFirst(sql, list.toArray()) ;
+	}
+	
+	
+	public void updateAcpt(String sno,String orderId,String userName) throws SQLException {
+		String sql = "update order_assign set is_rev=1 where order_id=? ";
+		List<Object> list = new ArrayList<Object>();
+		list.add(orderId);
+		dao.update(sql,list.toArray()) ;
+		
+		String sql1 = "update order_assign set is_rev=1,courier_no=? where order_id=? and sno=? ";
+		List<Object> list1 = new ArrayList<Object>();
+		list1.add(userName);
+		list1.add(orderId);
+		list1.add(sno);
+		dao.update(sql1,list1.toArray()) ;
+		
+		String sql2 = "update order_info set assign_status=1 where id=? ";
+		List<Object> list2 = new ArrayList<Object>();
+		list2.add(orderId);
+		dao.update(sql2,list2.toArray()) ;
+	}
+
+	
+	public void unacpt(String orderId) throws SQLException {
+		String sql = "update order_assign set is_rev=0 where order_id=? ";
+		List<Object> list = new ArrayList<Object>();
+		list.add(orderId);
+		dao.update(sql,list.toArray()) ;
+	}
+	
+	
+
+	public Page<Map<String, Object>> takelist(String userName,PageRequest pageRequest) throws SQLException {
+		String sql = "select o.id as order_id,concat(d.send_detail,d.send_address) AS send_addr,concat(d.rev_detail,d.rev_address) AS rev_addr,"
+                     +" o.create_time AS order_time,o.goods_name,d.send_name,d.send_tell "
+                     +" from order_info o   left join order_addr d on o.id=d.order_id  left join order_assign a on o.id=a.order_id "
+                     +" where a.is_rev=1 and a.`status`=1 and (o.`status`=1 or o.`status`=6) and a.courier_no=? order by o.id desc ";
+		List<Object> list = new ArrayList<Object>();
+		list.add(userName);
+		return dao.find(sql, list.toArray(),pageRequest) ;
+	}
+	
+	
+	
+	public Map<String, Object> getOrderInfoById(String orderId) throws SQLException {
+		String sql = "select o.id as order_id,o.order_no,o.`status` as order_status,d.vip_code,d.send_tell,d.send_name,d.send_card,"
+                     +"d.send_province_id,d.send_city_id,d.send_area_id,d.send_street_id,d.send_detail,d.send_address,"
+                     +"d.rev_tell,d.rev_name,d.rev_province_id,d.rev_city_id,d.rev_area_id,d.rev_street_id,d.rev_detail,d.rev_address, "
+                     +"o.server_type,o.freight_type,o.take_money,o.send_money,o.package_type,o.goods_name,o.quantity,o.weight_real,o.total_vol,"
+                     +"o.weight_vol,o.weight_charging,o.freight,o.freight_real,o.insured,o.insured_fee,o.behalf,o.behalf_fee,group_concat(r.remark) as order_note"
+                     +" from order_info o left join order_addr d on o.id=d.order_id left join order_reamrk r on o.id=r.order_id where o.id=? "
+                     +" group by o.id"  ;
+		List<Object> list = new ArrayList<Object>();
+		list.add(orderId);
+		return dao.findFirst(sql, list.toArray()) ;
+	}
+	
+	public Map<String, Object> getOrderInfoByNo(String orderNo) throws SQLException {
+		String sql = "select o.id as order_id,o.order_no,o.`status` as order_status,d.vip_code,d.send_tell,d.send_name,d.send_card,"
+                     +"d.send_province_id,d.send_city_id,d.send_area_id,d.send_street_id,d.send_detail,d.send_address,"
+                     +"d.rev_tell,d.rev_name,d.rev_province_id,d.rev_city_id,d.rev_area_id,d.rev_street_id,d.rev_detail,d.rev_address, "
+                     +"o.server_type,o.freight_type,o.take_money,o.send_money,o.package_type,o.goods_name,o.quantity,o.weight_real,o.total_vol,"
+                     +"o.weight_vol,o.weight_charging,o.freight,o.freight_real,o.insured,o.insured_fee,o.behalf,o.behalf_fee,group_concat(r.remark) as order_note"
+                     +" from order_info o left join order_addr d on o.id=d.order_id left join order_reamrk r on o.id=r.order_id where o.`status`!=1 and o.`status`!=6 and o.order_no=? "
+                     +" group by o.id"  ;
+		List<Object> list = new ArrayList<Object>();
+		list.add(orderNo);
+		return dao.findFirst(sql, list.toArray()) ;
+	}
+	
+	public void untake(String orderId) throws SQLException {
+		unacpt(orderId);
+		upStatus(orderId, 6);
+	}
+	
+	public void upStatus(String orderId,int status) throws SQLException {
+		String sql = "update order_info set `status`=? where id=? ";
+		List<Object> list = new ArrayList<Object>();
+		list.add(status);
+		list.add(orderId);
+		dao.update(sql,list.toArray()) ;
+	}
+	
+	public void sendUpdate(OrderInfo orderInfo) throws SQLException {
+		String sql = "update order_info set `status`=?,send_time=? where id=? ";
+		List<Object> list = new ArrayList<Object>();
+		list.add(orderInfo.getStatus());
+		list.add(DateUtils.formatDate(orderInfo.getSendTime())) ;
+		list.add(orderInfo.getId());
+		dao.update(sql,list.toArray()) ;
+	}
+	
+	public void updatePack(OrderInfo orderInfo) throws SQLException {
+		String sql = "update order_info set `is_pack`=? where id=? ";
+		List<Object> list = new ArrayList<Object>();
+		list.add(orderInfo.getIsPack());
+		list.add(orderInfo.getId());
+		dao.update(sql,list.toArray()) ;
+	}
+	
+	
+	public void paySuUpdate(OrderInfo orderInfo) throws SQLException {
+		String sql = "update order_info set `status`=?,freight_pay_status=?,freight_settle_status=?,freight_settle_time=? where id=? ";
+		List<Object> list = new ArrayList<Object>();
+        list.add(orderInfo.getStatus()) ;
+        list.add(orderInfo.getFreightPayStatus()) ;
+        list.add(orderInfo.getFreightSettleStatus()) ;
+        list.add(DateUtils.formatDate(orderInfo.getFreightSettleTime())) ;
+        list.add(orderInfo.getId()) ;
+		dao.update(sql,list.toArray()) ;
+	}
+	
+	public void payFailUpdate(OrderInfo orderInfo) throws SQLException {
+		String sql = "update order_info set `status`=?,freight_pay_status=? where id=? ";
+		List<Object> list = new ArrayList<Object>();
+        list.add(orderInfo.getStatus()) ;
+        list.add(orderInfo.getFreightPayStatus()) ;
+        list.add(orderInfo.getId()) ;
+		dao.update(sql,list.toArray()) ;
+	}
+	
+	
+	public void signUpdate(OrderInfo orderInfo) throws SQLException {
+		String sql = "update order_info set `status`=?,send_sno=?,send_courier_no=?,sign_time=?,signer=?,sign_img=?,"
+				+ "freight_pay_type=?,behalf_pay_type=?,freight_pay_status=?,behalf_pay_status=?,"
+				+ "freight_settle_status=?,behalf_settle_status=?,freight_settle_time=?,behalf_settle_time=? where order_no=? ";
+		List<Object> list = new ArrayList<Object>();
+        list.add(orderInfo.getStatus()) ;
+        list.add(orderInfo.getSendSno()) ;
+        list.add(orderInfo.getSendCourierNo()) ;
+        list.add(DateUtils.formatDate(orderInfo.getSignTime())) ;
+        list.add(orderInfo.getSigner()) ;
+        list.add(orderInfo.getSignImg()) ;
+        list.add(orderInfo.getFreightPayType()) ;
+        list.add(orderInfo.getBehalfPayType()) ;
+        list.add(orderInfo.getFreightPayStatus()) ;
+        list.add(orderInfo.getBehalfPayStatus()) ;
+        list.add(orderInfo.getFreightSettleStatus()) ;
+        list.add(orderInfo.getBehalfSettleStatus()) ;
+        if (orderInfo.getFreightSettleTime()==null) {
+        	 list.add(null) ;
+		}else {
+			list.add(DateUtils.formatDate(orderInfo.getFreightSettleTime())) ;
+		}
+        if (orderInfo.getBehalfSettleTime()==null) {
+        	 list.add(null) ;
+		}else {
+			list.add(DateUtils.formatDate(orderInfo.getBehalfSettleTime())) ;
+		}
+        list.add(orderInfo.getOrderNo()) ;
+
+		dao.update(sql,list.toArray()) ;
+	}
+	
+	public Map<String, Object> getUserCount(String userName,Date beginDate,Date endDate) throws SQLException {
+		Map<String, Object> retMap = new HashMap<String, Object>() ;
+		String sql = "select  count(0) AS take_count from order_info o where o.`status` in (2,3,4,5) and  o.take_courier_no=? and o.take_time between ? and ?"  ;
+		List<Object> list = new ArrayList<Object>();
+		list.add(userName);
+		list.add(DateUtils.formatDate(beginDate,"yyyy-MM-dd"));
+		list.add(DateUtils.formatDate(endDate,"yyyy-MM-dd").concat(" 23:59:59"));
+		Map<String, Object> map = dao.findFirst(sql, list.toArray()) ;
+		retMap.put("take_count", map.get("take_count")) ;
+		sql = "select  count(0) AS send_count from order_info o where o.`status`=3 and  o.send_courier_no=? and o.send_time between ? and ?"  ;
+		map = dao.findFirst(sql, list.toArray()) ;
+		retMap.put("send_count", map.get("send_count")) ;
+		return retMap ;
+	}
+	
+	
+	public void upGoodImg(String orderId,String url) throws SQLException {
+		String sql = "update order_info set `goods_img`=? where id=? ";
+		List<Object> list = new ArrayList<Object>();
+		list.add(url);
+		list.add(orderId);
+		dao.update(sql,list.toArray()) ;
+	}
+	
+	
+	public void nonePayNo(String order_id) throws NumberFormatException, SQLException {
+		String sql = "update order_info set freight_pay_status=0 where id=?";
+		List<Object> list = new ArrayList<Object>();
+		list.add(order_id);
+		dao.updateGetID(sql, list) ;
+	}
+	
+	public long save(OrderInfo orderInfo) throws SQLException {
+		String sql = "insert into order_info(order_no,zidan_no,receipt_no,`status`,goods_name,weight_real,quantity,"
+				+ "total_vol,create_time,take_sno,take_time,take_courier_no,freight_type,server_type,package_type,"
+				+ "weight_charging,`note`,receipt_type,weight_vol,`source`,`length`,`width`,`height`,`send_sno`,"
+				+ "`freight`,`freight_real`,`behalf`,`behalf_fee`,`insured`,`insured_fee`,`road_cost_from`,`road_cost_to`,`rail_cost`,"
+				+ "`total_fee`,`take_money`,`send_money`,`freight_pay_status`,`freight_pay_type`,`freight_settle_status`,`behalf_settle_status`,`freight_settle_time`) "
+				+ " values (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ";
+		List<Object> list = new ArrayList<Object>();
+        list.add(orderInfo.getOrderNo()) ;
+		list.add(orderInfo.getZidanNo());
+		list.add(orderInfo.getReceiptNo());
+		list.add(orderInfo.getStatus());
+		list.add(orderInfo.getGoodsName());
+		list.add(orderInfo.getWeightReal());
+		list.add(orderInfo.getQuantity());
+		list.add(orderInfo.getTotalVol());
+		list.add(DateUtils.formatDate(orderInfo.getCreateTime()));
+		list.add(orderInfo.getTakeSno()) ;
+		list.add(DateUtils.formatDate(orderInfo.getTakeTime())) ;
+		list.add(orderInfo.getTakeCourierNo());
+		list.add(orderInfo.getFreightType());
+		list.add(orderInfo.getServerType());
+		list.add(orderInfo.getPackageType());
+		list.add(orderInfo.getWeightCharging());
+		list.add(orderInfo.getNote());
+		list.add(orderInfo.getReceiptType());
+		list.add(orderInfo.getWeightVol());
+		list.add(orderInfo.getSource());
+		list.add(orderInfo.getLength());
+		list.add(orderInfo.getWidth());
+		list.add(orderInfo.getHeight());
+		list.add(orderInfo.getSendSno()) ;
+		list.add(orderInfo.getFreight());
+		list.add(orderInfo.getFreightReal());
+		list.add(orderInfo.getBehalf());
+		list.add(orderInfo.getBehalfFee());
+		list.add(orderInfo.getInsured());
+		list.add(orderInfo.getInsuredFee());
+		list.add(orderInfo.getRoadCostFrom());
+		list.add(orderInfo.getRoadCostTo());
+		list.add(orderInfo.getRailCost());
+		list.add(orderInfo.getTotalFee());
+		list.add(orderInfo.getTakeMoney());
+		list.add(orderInfo.getSendMoney());
+		list.add(orderInfo.getFreightPayStatus());
+		list.add(orderInfo.getFreightPayType());
+		list.add(orderInfo.getFreightSettleStatus());
+		list.add(orderInfo.getBehalfSettleStatus());
+		list.add(orderInfo.getFreightSettleTime());
+
+		 return dao.updateGetID(sql, list) ;
+	}
+	
+	
+	public void takeUpdate(OrderInfo orderInfo) throws SQLException {
+		String sql = "update order_info set order_no=?,zidan_no=?,receipt_no=?,`status`=?,goods_name=?,weight_real=?,quantity=?,"
+				+ "total_vol=?,take_sno=?,take_time=?,take_courier_no=?,freight_type=?,server_type=?,package_type=?,"
+				+ "weight_charging=?,`note`=?,receipt_type=?,weight_vol=?,`length`=?,`width`=?,`height`=?,`send_sno`=?,"
+				+ "`freight`=?,`freight_real`=?,`behalf`=?,`behalf_fee`=?,`insured`=?,`insured_fee`=?,`road_cost_from`=?,`road_cost_to`=?,`rail_cost`=?,"
+				+ "`total_fee`=?,`take_money`=?,`send_money`=?,`freight_pay_status`=?,`freight_pay_type`=?,`freight_settle_status`=?,"
+				+ "`behalf_settle_status`=?,`freight_settle_time`=? where id=? ";
+		List<Object> list = new ArrayList<Object>();
+        list.add(orderInfo.getOrderNo()) ;
+		list.add(orderInfo.getZidanNo());
+		list.add(orderInfo.getReceiptNo());
+		list.add(orderInfo.getStatus());
+		list.add(orderInfo.getGoodsName());
+		list.add(orderInfo.getWeightReal());
+		list.add(orderInfo.getQuantity());
+		list.add(orderInfo.getTotalVol());
+		list.add(orderInfo.getTakeSno()) ;
+		list.add(DateUtils.formatDate(orderInfo.getTakeTime())) ;
+		list.add(orderInfo.getTakeCourierNo());
+		list.add(orderInfo.getFreightType());
+		list.add(orderInfo.getServerType());
+		list.add(orderInfo.getPackageType());
+		list.add(orderInfo.getWeightCharging());
+		list.add(orderInfo.getNote());
+		list.add(orderInfo.getReceiptType());
+		list.add(orderInfo.getWeightVol());
+		list.add(orderInfo.getLength());
+		list.add(orderInfo.getWidth());
+		list.add(orderInfo.getHeight());
+		list.add(orderInfo.getSendSno()) ;
+		list.add(orderInfo.getFreight());
+		list.add(orderInfo.getFreightReal());
+		list.add(orderInfo.getBehalf());
+		list.add(orderInfo.getBehalfFee());
+		list.add(orderInfo.getInsured());
+		list.add(orderInfo.getInsuredFee());
+		list.add(orderInfo.getRoadCostFrom());
+		list.add(orderInfo.getRoadCostTo());
+		list.add(orderInfo.getRailCost());
+		list.add(orderInfo.getTotalFee());
+		list.add(orderInfo.getTakeMoney());
+		list.add(orderInfo.getSendMoney());
+		list.add(orderInfo.getFreightPayStatus());
+		list.add(orderInfo.getFreightPayType());
+		list.add(orderInfo.getFreightSettleStatus());
+		list.add(orderInfo.getBehalfSettleStatus());
+		list.add(orderInfo.getFreightSettleTime());
+        list.add(orderInfo.getId()) ;
+        dao.updateGetID(sql, list) ;	
+	}
+
+
+	public void updateFee(String order_id, double fee, int type) throws SQLException {
+		String sql = "update order_info set pay_cost_from=? where id=?";
+		List<Object> list = new ArrayList<Object>();
+		if (type==2) {
+			sql = "update order_info set pay_cost_to=? where id=?";
+		}
+		list.add(fee) ;
+		list.add(order_id);
+		dao.updateGetID(sql, list) ;
+	}
+	
+}

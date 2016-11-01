@@ -1,0 +1,85 @@
+package com.yogapay.couriertsi.services;
+
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+
+import javax.annotation.Resource;
+
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.stereotype.Service;
+
+import com.yogapay.couriertsi.utils.Dao;
+
+/**
+ * 用户service
+ * @author 
+ *
+ */
+@Service
+public class OrderService {
+
+	@Resource
+	private Dao dao ;
+
+	
+	public Page<Map<String, Object>> acptlist(String sno,PageRequest pageRequest) throws SQLException {
+		String sql = "select o.id as order_id,concat(d.send_detail,d.send_address) AS send_addr,concat(d.rev_detail,d.rev_address) AS rev_addr,"
+                     +" o.create_time AS order_time,o.goods_name "
+                     +" from order_info o   left join order_addr d on o.id=d.order_id  left join order_assign a on o.id=a.order_id "
+                     +" where a.is_rev=0 and o.`status`=1 and a.sno=? ";
+		List<Object> list = new ArrayList<Object>();
+		list.add(sno);
+		return dao.find(sql, list.toArray(),pageRequest) ;
+	}
+	
+	public Page<Map<String, Object>> search(String sno,String keyval,PageRequest pageRequest) throws SQLException {
+		String sql = "select o.id as order_id,concat(d.send_detail,d.send_address) AS send_addr,concat(d.rev_detail,d.rev_address) AS rev_addr,"
+                     +" o.create_time AS order_time,o.goods_name "
+                     +" from order_info o   left join order_addr d on o.id=d.order_id  left join order_assign a on o.id=a.order_id "
+                     +" where a.is_rev=0 and o.`status`=1 and a.sno=? "
+                     +" and (d.send_name like '%"+keyval+"%' or d.send_tell like '%"+keyval+"%')";
+		List<Object> list = new ArrayList<Object>();
+		list.add(sno);
+		return dao.find(sql, list.toArray(),pageRequest) ;
+	}
+	
+	
+	public Map<String, Object> getAcptByOrderId(String sno,String orderId) throws SQLException {
+		String sql = "select *  from order_assign where sno=? and order_id=? where a.is_rev=0 ";
+		List<Object> list = new ArrayList<Object>();
+		list.add(sno);
+		list.add(orderId);
+		return dao.findFirst(sql, list.toArray()) ;
+	}
+	
+	
+	public void updateAcpt(String sno,String orderId,String userName) throws SQLException {
+		String sql = "update order_assign set is_rev=1 where order_id=? ";
+		List<Object> list = new ArrayList<Object>();
+		list.add(orderId);
+		dao.update(sql,list.toArray()) ;
+		
+		String sql1 = "update order_assign set is_rev=1,courier_no=? where order_id=? and sno=? ";
+		List<Object> list1 = new ArrayList<Object>();
+		list1.add(userName);
+		list1.add(orderId);
+		list1.add(sno);
+		dao.update(sql1,list1.toArray()) ;
+	}
+
+
+	public Page<Map<String, Object>> takelist(String userName,PageRequest pageRequest) throws SQLException {
+		String sql = "select o.id as order_id,concat(d.send_detail,d.send_address) AS send_addr,concat(d.rev_detail,d.rev_address) AS rev_addr,"
+                     +" o.create_time AS order_time,o.goods_name "
+                     +" from order_info o   left join order_addr d on o.id=d.order_id  left join order_assign a on o.id=a.order_id "
+                     +" where a.is_rev=1 and o.`status`=1 and a.courier_no=? ";
+		List<Object> list = new ArrayList<Object>();
+		list.add(userName);
+		return dao.find(sql, list.toArray(),pageRequest) ;
+	}
+	
+	
+}

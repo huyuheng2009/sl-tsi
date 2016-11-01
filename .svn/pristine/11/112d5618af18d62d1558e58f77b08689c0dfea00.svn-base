@@ -1,0 +1,103 @@
+package com.yogapay.couriertsi.domain;
+
+public class OrderPrepay {
+    private Integer id;
+
+    private Integer orderId;
+
+    private Double freight;
+
+    private Double roadCostFrom;
+
+    private Double roadCostTo;
+
+    private Double railCost;
+
+    private Integer routeId;
+
+    private Integer freightType;
+
+    private String weightCharging;
+
+    private String goodsName;
+
+    public Integer getId() {
+        return id;
+    }
+
+    public void setId(Integer id) {
+        this.id = id;
+    }
+
+    public Integer getOrderId() {
+        return orderId;
+    }
+
+    public void setOrderId(Integer orderId) {
+        this.orderId = orderId;
+    }
+
+    public Double getFreight() {
+        return freight;
+    }
+
+    public void setFreight(Double freight) {
+        this.freight = freight;
+    }
+
+    public Double getRoadCostFrom() {
+        return roadCostFrom;
+    }
+
+    public void setRoadCostFrom(Double roadCostFrom) {
+        this.roadCostFrom = roadCostFrom;
+    }
+
+    public Double getRoadCostTo() {
+        return roadCostTo;
+    }
+
+    public void setRoadCostTo(Double roadCostTo) {
+        this.roadCostTo = roadCostTo;
+    }
+
+    public Double getRailCost() {
+        return railCost;
+    }
+
+    public void setRailCost(Double railCost) {
+        this.railCost = railCost;
+    }
+
+    public Integer getRouteId() {
+        return routeId;
+    }
+
+    public void setRouteId(Integer routeId) {
+        this.routeId = routeId;
+    }
+
+    public Integer getFreightType() {
+        return freightType;
+    }
+
+    public void setFreightType(Integer freightType) {
+        this.freightType = freightType;
+    }
+
+    public String getWeightCharging() {
+        return weightCharging;
+    }
+
+    public void setWeightCharging(String weightCharging) {
+        this.weightCharging = weightCharging == null ? null : weightCharging.trim();
+    }
+
+    public String getGoodsName() {
+        return goodsName;
+    }
+
+    public void setGoodsName(String goodsName) {
+        this.goodsName = goodsName == null ? null : goodsName.trim();
+    }
+}

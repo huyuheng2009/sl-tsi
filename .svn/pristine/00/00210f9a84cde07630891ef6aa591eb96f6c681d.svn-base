@@ -1,0 +1,105 @@
+package com.yogapay.couriertsi.domain;
+
+import java.util.Date;
+
+public class Pack {
+    private Integer id;
+
+    private Date createTime;
+
+    private String sno;
+
+    private String operate;
+
+    private String img;
+
+    private Double cost;
+
+    private String packNo;
+
+    private Date feeTime;
+
+    private Double sub3Profit;
+
+    private Double subProfit;
+
+    public Integer getId() {
+        return id;
+    }
+
+    public void setId(Integer id) {
+        this.id = id;
+    }
+
+    public Date getCreateTime() {
+        return createTime;
+    }
+
+    public void setCreateTime(Date createTime) {
+        this.createTime = createTime;
+    }
+
+    public String getSno() {
+        return sno;
+    }
+
+    public void setSno(String sno) {
+        this.sno = sno == null ? null : sno.trim();
+    }
+
+    public String getOperate() {
+        return operate;
+    }
+
+    public void setOperate(String operate) {
+        this.operate = operate == null ? null : operate.trim();
+    }
+
+    public String getImg() {
+        return img;
+    }
+
+    public void setImg(String img) {
+        this.img = img == null ? null : img.trim();
+    }
+
+    public Double getCost() {
+        return cost;
+    }
+
+    public void setCost(Double cost) {
+        this.cost = cost;
+    }
+
+    public String getPackNo() {
+        return packNo;
+    }
+
+    public void setPackNo(String packNo) {
+        this.packNo = packNo == null ? null : packNo.trim();
+    }
+
+    public Date getFeeTime() {
+        return feeTime;
+    }
+
+    public void setFeeTime(Date feeTime) {
+        this.feeTime = feeTime;
+    }
+
+    public Double getSub3Profit() {
+        return sub3Profit;
+    }
+
+    public void setSub3Profit(Double sub3Profit) {
+        this.sub3Profit = sub3Profit;
+    }
+
+    public Double getSubProfit() {
+        return subProfit;
+    }
+
+    public void setSubProfit(Double subProfit) {
+        this.subProfit = subProfit;
+    }
+}

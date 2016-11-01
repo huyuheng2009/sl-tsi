@@ -1,0 +1,58 @@
+package com.yogapay.couriertsi.services;
+
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.List;
+
+import javax.annotation.Resource;
+
+import org.springframework.stereotype.Service;
+
+import com.yogapay.couriertsi.domain.OrderPrepay;
+import com.yogapay.couriertsi.domain.OrderTrack;
+import com.yogapay.couriertsi.utils.Dao;
+import com.yogapay.couriertsi.utils.DateUtils;
+
+/**
+ * 用户service
+ * @author 
+ *
+ */
+@Service
+public class OrderPrepayService {
+
+	@Resource
+	private Dao dao ;
+
+	
+	public long save(OrderPrepay orderPrepay) throws SQLException {
+		String sql = "insert into order_prepay(freight,road_cost_from,road_cost_to,rail_cost,route_id,freight_type,weight_charging,goods_name,create_time) values (?,?,?,?,?,?,?,?,?) ";
+		List<Object> list = new ArrayList<Object>();
+        list.add(orderPrepay.getFreight()) ;
+        list.add(orderPrepay.getRoadCostFrom()) ;
+        list.add(orderPrepay.getRoadCostTo()) ;
+        list.add(orderPrepay.getRailCost()) ;
+        list.add(orderPrepay.getRouteId()) ;
+        list.add(orderPrepay.getFreightType()) ;
+        list.add(orderPrepay.getWeightCharging()) ;
+        list.add(orderPrepay.getGoodsName()) ;
+        list.add(DateUtils.formatDate(orderPrepay.getCreateTime())) ;
+		 return dao.updateGetID(sql, list) ;
+	}
+	
+	public void delById(Integer id) throws SQLException {
+		 String sql = "delete from  order_prepay where id=? ";
+		 List<Object> list = new ArrayList<Object>();
+		 list.add(id) ;
+		  dao.update(sql, list.toArray()) ;
+	}
+	
+	public OrderPrepay getById(Integer id) throws SQLException {
+		 String sql = "select *  from  order_prepay where id=? ";
+		 List<Object> list = new ArrayList<Object>();
+		 list.add(id) ;
+		 return dao.findFirst(OrderPrepay.class, sql,list.toArray()) ;
+	}
+	
+
+}

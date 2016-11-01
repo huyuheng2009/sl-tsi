@@ -1,0 +1,305 @@
+package com.yogapay.couriertsi.api;
+
+import java.util.Date;
+import java.util.List;
+import java.util.Map;
+
+import javax.annotation.Resource;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import org.springframework.context.annotation.Scope;
+import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+
+import com.yogapay.couriertsi.domain.BossUser;
+import com.yogapay.couriertsi.domain.OrderReamrk;
+import com.yogapay.couriertsi.services.BossUserService;
+import com.yogapay.couriertsi.services.CustomService;
+import com.yogapay.couriertsi.services.OrderAddrService;
+import com.yogapay.couriertsi.services.OrderRemarkService;
+import com.yogapay.couriertsi.services.OrderService;
+import com.yogapay.couriertsi.services.RouteService;
+import com.yogapay.couriertsi.services.SubstationService;
+import com.yogapay.couriertsi.utils.CommonResponse;
+import com.yogapay.couriertsi.utils.DateUtils;
+import com.yogapay.couriertsi.utils.StringUtils;
+
+
+@Controller
+@RequestMapping(value="/order")
+@Scope("prototype")
+public class OrderApi extends BaseApi{
+	@Resource
+	private OrderService orderService ;
+	@Resource
+	private BossUserService bossUserService ;
+	@Resource
+	private OrderRemarkService orderRemarkService ;
+	@Resource
+	private CustomService customService ;
+	@Resource
+	private OrderAddrService orderAddrService ;
+	@Resource SubstationService substationService ;
+	@Resource RouteService routeService ;
+	
+
+	@RequestMapping(value = "info")	
+	public void info(@RequestParam Map<String,String> params,HttpServletRequest request,HttpServletResponse response,
+			@RequestParam(value = "page_no", defaultValue = "1") int cpage){
+		try {
+			Map<String, String> ret = validateRequest(request,new String[] {"no_val"}, true);
+			if ("TRUE".equals(ret.get("isSuccess"))) {
+				String userName = ret.get("userNo") ;
+        Map<String, Object> order_info = null ;
+               if ("1".equals(params.get("no_type"))) {
+	               order_info = orderService.getOrderInfoById(params.get("no_val")) ;
+             }else {
+            	    order_info = orderService.getOrderInfoByNo(params.get("no_val")) ;
+			}
+			if (order_info==null) {
+				render(JSON_TYPE, CommonResponse.respFailJson("9005","订单不存在", params.get("reqNo")), response);
+				return ;
+			}	
+               model.put("order_info", order_info) ;
+				render(JSON_TYPE, CommonResponse.respSuccessJson("",model, params.get("reqNo")), response);   			
+			}else {
+				log.info("validate false!!!!");
+				render(JSON_TYPE, CommonResponse.respFailJson(ret.get("respCode"), ret.get("respMsg"), params.get("reqNo")),response);
+			}		
+		} catch (Exception e) {
+			e.printStackTrace();
+			render(JSON_TYPE, CommonResponse.respFailJson("9000","服务器异常", params.get("reqNo")), response);
+		}
+	}
+
+	@RequestMapping(value = "unacpt")	
+	public void unacpt(@RequestParam Map<String,String> params,HttpServletRequest request,HttpServletResponse response,
+			@RequestParam(value = "page_no", defaultValue = "1") int cpage){
+		try {
+			Map<String, String> ret = validateRequest(request,new String[] {"order_id"}, true);
+			if ("TRUE".equals(ret.get("isSuccess"))) {
+				String userName = ret.get("userNo") ;
+				Map<String, Object> acptMap = orderService.getAcptByUserName(userName,params.get("order_id")) ;
+				if (acptMap==null) {
+					render(JSON_TYPE, CommonResponse.respFailJson("9003","不是当前分配无法退回", params.get("reqNo")), response);
+					return ;
+				}
+                orderService.unacpt(params.get("order_id"));
+				render(JSON_TYPE, CommonResponse.respSuccessJson("","退回成功", params.get("reqNo")), response);   			
+			}else {
+				log.info("validate false!!!!");
+				render(JSON_TYPE, CommonResponse.respFailJson(ret.get("respCode"), ret.get("respMsg"), params.get("reqNo")),response);
+			}		
+		} catch (Exception e) {
+			e.printStackTrace();
+			render(JSON_TYPE, CommonResponse.respFailJson("9000","服务器异常", params.get("reqNo")), response);
+		}
+	}
+	
+	@RequestMapping(value = "untake")	
+	public void untake(@RequestParam Map<String,String> params,HttpServletRequest request,HttpServletResponse response,
+			@RequestParam(value = "page_no", defaultValue = "1") int cpage){
+		try {
+			Map<String, String> ret = validateRequest(request,new String[] {"order_id","order_note"}, true);
+			if ("TRUE".equals(ret.get("isSuccess"))) {
+				String userName = ret.get("userNo") ;
+				BossUser bossUser = bossUserService.getByUserName(userName) ;
+				Map<String, Object> acptMap = orderService.getAcptByUserName(userName,params.get("order_id")) ;
+				if (acptMap==null) {
+					render(JSON_TYPE, CommonResponse.respFailJson("9003","不是当前分配无法拒收", params.get("reqNo")), response);
+					return ;
+				}
+                orderService.untake(params.get("order_id"));
+                
+                OrderReamrk reamrk = new OrderReamrk() ;
+                reamrk.setOrderId(Integer.valueOf(params.get("order_id")));
+                reamrk.setRemark("订单拒收："+params.get("order_note"));
+                reamrk.setOperate(userName);
+                reamrk.setRealName(bossUser.getRealName());
+                reamrk.setCreateTime(new Date());
+                orderRemarkService.save(reamrk);
+                
+				render(JSON_TYPE, CommonResponse.respSuccessJson("","拒收成功", params.get("reqNo")), response);   			
+			}else {
+				log.info("validate false!!!!");
+				render(JSON_TYPE, CommonResponse.respFailJson(ret.get("respCode"), ret.get("respMsg"), params.get("reqNo")),response);
+			}		
+		} catch (Exception e) {
+			e.printStackTrace();
+			render(JSON_TYPE, CommonResponse.respFailJson("9000","服务器异常", params.get("reqNo")), response);
+		}
+	}
+	
+
+	
+	@RequestMapping(value = "vipinfo")	
+	public void vipinfo(@RequestParam Map<String,String> params,HttpServletRequest request,HttpServletResponse response,
+			@RequestParam(value = "page_no", defaultValue = "1") int cpage){
+		try {
+			Map<String, String> ret = validateRequest(request,new String[] {"vip_code"}, true);
+			if ("TRUE".equals(ret.get("isSuccess"))) {
+				String userName = ret.get("userNo") ;
+				Map<String, Object> vip_info = customService.getByCode(params.get("vip_code")) ;
+				if (vip_info==null) {
+					render(JSON_TYPE, CommonResponse.respFailJson("9006","vip客户不存在", params.get("reqNo")), response);
+					return ;
+				}
+                 model.put("vip_info", vip_info) ;
+				render(JSON_TYPE, CommonResponse.respSuccessJson("",model, params.get("reqNo")), response);   			
+			}else {
+				log.info("validate false!!!!");
+				render(JSON_TYPE, CommonResponse.respFailJson(ret.get("respCode"), ret.get("respMsg"), params.get("reqNo")),response);
+			}		
+		} catch (Exception e) {
+			e.printStackTrace();
+			render(JSON_TYPE, CommonResponse.respFailJson("9000","服务器异常", params.get("reqNo")), response);
+		}
+	}
+
+	
+	
+	@RequestMapping(value = "sendinfo")	
+	public void sendinfo(@RequestParam Map<String,String> params,HttpServletRequest request,HttpServletResponse response,
+			@RequestParam(value = "page_no", defaultValue = "1") int cpage){
+		try {
+			Map<String, String> ret = validateRequest(request,new String[] {}, true);
+			if ("TRUE".equals(ret.get("isSuccess"))) {
+				String userName = ret.get("userNo") ;
+				if (StringUtils.isEmptyWithTrim(params.get("send_name"))&&StringUtils.isEmptyWithTrim(params.get("send_tell"))) {
+					render(JSON_TYPE, CommonResponse.respFailJson("9001","缺少参数send_name或send_tell", params.get("reqNo")), response);
+					return ;
+				}
+				List<Map<String, Object>> send_list = null ;
+				if (!StringUtils.isEmptyWithTrim(params.get("send_name"))) {
+					send_list = orderAddrService.getBySendName(params.get("send_name")) ;
+				}else {
+					send_list = orderAddrService.getBySendTell(params.get("send_tell")) ;
+				}
+                 model.put("send_list", send_list) ;
+				render(JSON_TYPE, CommonResponse.respSuccessJson("",model, params.get("reqNo")), response);   			
+			}else {
+				log.info("validate false!!!!");
+				render(JSON_TYPE, CommonResponse.respFailJson(ret.get("respCode"), ret.get("respMsg"), params.get("reqNo")),response);
+			}		
+		} catch (Exception e) {
+			e.printStackTrace();
+			render(JSON_TYPE, CommonResponse.respFailJson("9000","服务器异常", params.get("reqNo")), response);
+		}
+	}
+	
+	
+	@RequestMapping(value = "orderno")	
+	public void orderno(@RequestParam Map<String,String> params,HttpServletRequest request,HttpServletResponse response,
+			@RequestParam(value = "page_no", defaultValue = "1") int cpage){
+		try {
+			Map<String, String> ret = validateRequest(request,new String[] {}, true);
+			if ("TRUE".equals(ret.get("isSuccess"))) {
+				String userName = ret.get("userNo") ;
+				String order_no = "" ;
+				String curDate = DateUtils.formatDate(new Date(), "yyyyMMdd");
+				String cdate = sequenceService.getCurrVal("cur_date");
+				String nextLgcOrderNo = "0000001";
+				if (curDate.equals(cdate)) {
+					nextLgcOrderNo = sequenceService.getNextVal("cur_order_no").substring(1);
+				} else {
+					if ("0".equals(cdate)) {
+						render(JSON_TYPE, CommonResponse.respFailJson("9007","缺少单号配置信息", params.get("reqNo")), response);
+						return ;
+					}
+					sequenceService.setCurrVal("cur_date", curDate);
+					sequenceService.setCurrVal("cur_order_no", "10000001");
+				}
+				 order_no = "956" + curDate.substring(4) + nextLgcOrderNo;
+                 model.put("order_no", order_no) ;
+				render(JSON_TYPE, CommonResponse.respSuccessJson("",model, params.get("reqNo")), response);   			
+			}else {
+				log.info("validate false!!!!");
+				render(JSON_TYPE, CommonResponse.respFailJson(ret.get("respCode"), ret.get("respMsg"), params.get("reqNo")),response);
+			}		
+		} catch (Exception e) {
+			e.printStackTrace();
+			render(JSON_TYPE, CommonResponse.respFailJson("9000","服务器异常", params.get("reqNo")), response);
+		}
+	}
+	
+	
+	
+	@RequestMapping(value = "sendstation")	
+	public void sendstation(@RequestParam Map<String,String> params,HttpServletRequest request,HttpServletResponse response,
+			@RequestParam(value = "page_no", defaultValue = "1") int cpage){
+		try {
+			Map<String, String> ret = validateRequest(request,new String[] {"province_id","city_id","area_id"}, true);
+			if ("TRUE".equals(ret.get("isSuccess"))) {
+				String userName = ret.get("userNo") ;
+                 List<Map<String, Object>> substation_list = substationService.getByArea(params.get("province_id"), params.get("city_id"), params.get("area_id")) ;
+                 if (substation_list==null||substation_list.size()<1) {
+                	 render(JSON_TYPE, CommonResponse.respFailJson("9008","该区域公司暂不进行收派件！", params.get("reqNo")), response);
+						return ;
+				}
+                 model.put("substation_list", substation_list) ;
+				render(JSON_TYPE, CommonResponse.respSuccessJson("",model, params.get("reqNo")), response);   			
+			}else {
+				log.info("validate false!!!!");
+				render(JSON_TYPE, CommonResponse.respFailJson(ret.get("respCode"), ret.get("respMsg"), params.get("reqNo")),response);
+			}		
+		} catch (Exception e) {
+			e.printStackTrace();
+			render(JSON_TYPE, CommonResponse.respFailJson("9000","服务器异常", params.get("reqNo")), response);
+		}
+	}
+	
+	
+	
+	@RequestMapping(value = "route")	
+	public void route(@RequestParam Map<String,String> params,HttpServletRequest request,HttpServletResponse response,
+			@RequestParam(value = "page_no", defaultValue = "1") int cpage){
+		try {
+			Map<String, String> ret = validateRequest(request,new String[] {"send_sno"}, true);
+			if ("TRUE".equals(ret.get("isSuccess"))) {
+				String userName = ret.get("userNo") ;
+				BossUser bossUser = bossUserService.getByUserName(userName) ;
+                 List<Map<String, Object>> route_list = routeService.getBySubstation(bossUser.getSno(), params.get("send_sno")) ;
+                 model.put("route_list", route_list) ;
+				render(JSON_TYPE, CommonResponse.respSuccessJson("",model, params.get("reqNo")), response);   			
+			}else {
+				log.info("validate false!!!!");
+				render(JSON_TYPE, CommonResponse.respFailJson(ret.get("respCode"), ret.get("respMsg"), params.get("reqNo")),response);
+			}		
+		} catch (Exception e) {
+			e.printStackTrace();
+			render(JSON_TYPE, CommonResponse.respFailJson("9000","服务器异常", params.get("reqNo")), response);
+		}
+	}
+	
+	
+	@RequestMapping(value = "freight")	
+	public void freight(@RequestParam Map<String,String> params,HttpServletRequest request,HttpServletResponse response,
+			@RequestParam(value = "page_no", defaultValue = "1") int cpage){
+		try {
+			Map<String, String> ret = validateRequest(request,new String[] {"route_id","freight_type"}, true);
+			if ("TRUE".equals(ret.get("isSuccess"))) {
+
+                 model.put("freight", 16) ;
+				render(JSON_TYPE, CommonResponse.respSuccessJson("",model, params.get("reqNo")), response);   			
+			}else {
+				log.info("validate false!!!!");
+				render(JSON_TYPE, CommonResponse.respFailJson(ret.get("respCode"), ret.get("respMsg"), params.get("reqNo")),response);
+			}		
+		} catch (Exception e) {
+			e.printStackTrace();
+			render(JSON_TYPE, CommonResponse.respFailJson("9000","服务器异常", params.get("reqNo")), response);
+		}
+	}
+	
+	
+	
+	
+	
+}
+
+
+
+
+

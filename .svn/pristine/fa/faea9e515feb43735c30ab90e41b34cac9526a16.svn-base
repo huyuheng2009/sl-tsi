@@ -1,0 +1,35 @@
+package com.yogapay.couriertsi.services;
+
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+
+import javax.annotation.Resource;
+
+import org.springframework.stereotype.Service;
+
+import com.yogapay.couriertsi.domain.PackConfig;
+import com.yogapay.couriertsi.utils.Dao;
+
+/**
+ * 用户service
+ * @author 
+ *
+ */
+@Service
+public class CustomService {
+
+	@Resource
+	private Dao dao ;
+
+	
+	public Map<String, Object> getByCode(String code) throws SQLException {
+		String sql = "select c.code,c.tell,c.user_name,c.full_name,c.discount from custom c where  code=? ";
+		List<Object> list = new ArrayList<Object>();
+		list.add(code) ;
+		return dao.findFirst( sql, list.toArray()) ;
+	}
+
+
+}

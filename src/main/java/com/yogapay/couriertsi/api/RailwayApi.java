@@ -1,0 +1,233 @@
+package com.yogapay.couriertsi.api;
+
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import javax.annotation.Resource;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import org.springframework.context.annotation.Scope;
+import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+
+import com.yogapay.couriertsi.domain.BossUser;
+import com.yogapay.couriertsi.domain.Config;
+import com.yogapay.couriertsi.domain.OrderInfo;
+import com.yogapay.couriertsi.domain.OrderPack;
+import com.yogapay.couriertsi.domain.OrderScan;
+import com.yogapay.couriertsi.domain.OrderTrack;
+import com.yogapay.couriertsi.domain.Pack;
+import com.yogapay.couriertsi.domain.Substation;
+import com.yogapay.couriertsi.services.BossUserService;
+import com.yogapay.couriertsi.services.ConfigService;
+import com.yogapay.couriertsi.services.OrderPackService;
+import com.yogapay.couriertsi.services.OrderProblemService;
+import com.yogapay.couriertsi.services.OrderScanService;
+import com.yogapay.couriertsi.services.OrderService;
+import com.yogapay.couriertsi.services.OrderTrackService;
+import com.yogapay.couriertsi.services.PackService;
+import com.yogapay.couriertsi.services.SubstationService;
+import com.yogapay.couriertsi.utils.CommonResponse;
+import com.yogapay.couriertsi.utils.DateUtils;
+import com.yogapay.couriertsi.utils.RequestFile;
+import com.yogapay.couriertsi.utils.StringUtils;
+
+
+@Controller
+@RequestMapping(value="/railway")
+@Scope("prototype")
+public class RailwayApi extends BaseApi{
+	@Resource
+	private BossUserService bossUserService ;
+	@Resource
+	private OrderService orderService  ;
+	@Resource
+	private OrderProblemService orderProblemService ;
+	@Resource
+	private PackService packService  ;
+	@Resource
+	private OrderPackService orderPackService ;
+	@Resource
+	private ConfigService configService ;
+	@Resource
+	private SubstationService substationService ;
+	@Resource
+	private OrderTrackService orderTrackService ;
+	@Resource private OrderScanService orderScanService ;
+	 
+	@RequestMapping(value = "ordercost")	
+	public void ordercost(@RequestParam Map<String,String> params,HttpServletRequest request,HttpServletResponse response){
+		try {
+			Map<String, String> ret = validateRequest(request,new String[] {"order_no"}, true);
+			if ("TRUE".equals(ret.get("isSuccess"))) {
+                
+                OrderInfo orderInfo = orderService.getByOrderNo(params.get("order_no")) ;
+                if (orderInfo==null) {
+			    	render(JSON_TYPE, CommonResponse.respFailJson("9999","订单不存在", params.get("reqNo")), response);
+					return ;
+				}
+                model.put("rail_cost", orderInfo.getRailCost()==null?0:orderInfo.getRailCost()) ;
+				render(JSON_TYPE, CommonResponse.respSuccessJson("",model, params.get("reqNo")), response);   			
+			}else {
+				log.info("validate false!!!!");
+				render(JSON_TYPE, CommonResponse.respFailJson(ret.get("respCode"), ret.get("respMsg"), params.get("reqNo")),response);
+			}		
+		} catch (Exception e) {
+			e.printStackTrace();
+			render(JSON_TYPE, CommonResponse.respFailJson("9000","服务器异常", params.get("reqNo")), response);
+		}
+	}
+	
+	
+	
+	@RequestMapping(value = "packinfo")	
+	public void packinfo(@RequestParam Map<String,String> params,HttpServletRequest request,HttpServletResponse response){
+		try {
+			Map<String, String> ret = validateRequest(request,new String[] {"pack_no"}, true);
+			if ("TRUE".equals(ret.get("isSuccess"))) {
+				String userName = ret.get("userNo") ;
+                
+                Pack pack = packService.getByPackNo(params.get("pack_no")) ;
+                if (pack==null) {
+			    	render(JSON_TYPE, CommonResponse.respFailJson("9999","包号不存在", params.get("reqNo")), response);
+					return ;
+				}
+               List<String> data =  orderPackService.getOrderNoByPackNo(pack.getPackNo()) ;
+               if (data.size()<1) {
+			    	render(JSON_TYPE, CommonResponse.respFailJson("9999","包号为空包，请先打包扫描", params.get("reqNo")), response);
+					return ;
+				}
+                float max_cost = orderPackService.getPackOrderCost(pack.getPackNo()) ;
+                Map<String, Object> pack_info = new HashMap<String, Object>() ;
+                pack_info.put("data", data) ;
+                pack_info.put("max_cost", max_cost) ;
+                pack_info.put("isfee", pack.getIsfee()) ;
+                model.put("pack_info", pack_info) ;
+
+				render(JSON_TYPE, CommonResponse.respSuccessJson("",model, params.get("reqNo")), response);   			
+			}else {
+				log.info("validate false!!!!");
+				render(JSON_TYPE, CommonResponse.respFailJson(ret.get("respCode"), ret.get("respMsg"), params.get("reqNo")),response);
+			}		
+		} catch (Exception e) {
+			e.printStackTrace();
+			render(JSON_TYPE, CommonResponse.respFailJson("9000","服务器异常", params.get("reqNo")), response);
+		}
+	}
+
+
+	@RequestMapping(value = "freight")	
+	public void freight(@RequestParam Map<String,String> params,HttpServletRequest request,HttpServletResponse response){
+		try {
+			Map<String, String> ret = validateRequest(request,new String[] {"pack_no","cost"}, true);
+			if ("TRUE".equals(ret.get("isSuccess"))) {
+				String userName = ret.get("userNo") ;
+                BossUser bossUser = bossUserService.getByUserName(userName) ;
+                Substation substation = substationService.getBySno(bossUser.getSno()) ;
+                if (substation==null||substation.getLevel()!=2) {
+                	render(JSON_TYPE, CommonResponse.respFailJson("9999","网点错误，一级中转中心才能进行录入", params.get("reqNo")), response);
+					return ;
+				}
+                Date nowDate = new Date() ;
+                
+                float max_cost = 0 ;
+                boolean add = false ;
+                Pack pack = packService.getByPackNo(params.get("pack_no")) ;
+                OrderPack orderPack = null ;
+                if (pack==null) {
+			    	if (StringUtils.isEmptyWithTrim(params.get("order_no"))) {
+			    		render(JSON_TYPE, CommonResponse.respFailJson("9999","当前包号不存在，请输入运单号新增", params.get("reqNo")), response);
+						return ;
+					}
+					  OrderInfo orderInfo = orderService.getByOrderNo(params.get("order_no")) ;
+		                if (orderInfo==null) {
+					    	render(JSON_TYPE, CommonResponse.respFailJson("9999","运单号不存在", params.get("reqNo")), response);
+							return ;
+						}
+		                max_cost = Float.valueOf(orderInfo.getRailCost().toString());
+		                orderPack = orderPackService.getByOrderNo(params.get("order_no")) ;
+						if (orderPack!=null) {
+							render(JSON_TYPE, CommonResponse.respFailJson("9999","重复打包", params.get("reqNo")), response);
+							return ;
+						}
+		                add = true ;
+		            	pack = new Pack() ;
+						pack.setPackNo(params.get("pack_no"));
+						pack.setCreateTime(nowDate); 
+						pack.setOperate(bossUser.getRealName());
+						pack.setSno(bossUser.getSno());
+						pack.setIsfee(0);
+				}else {
+					max_cost = orderPackService.getPackOrderCost(params.get("pack_no")) ;
+					if (pack.getIsfee()==1) {
+				    	render(JSON_TYPE, CommonResponse.respFailJson("9999","请勿重复录入铁路运费", params.get("reqNo")), response);
+						return ;
+					}
+				}
+                double cost = 0.0 ;
+                try {
+					cost = Double.valueOf(params.get("cost")) ;
+				} catch (Exception e) {
+					e.printStackTrace();
+					render(JSON_TYPE, CommonResponse.respFailJson("9999","cost数据有误", params.get("reqNo")), response);
+					return ;
+				}
+                if (!add&&max_cost-cost<0.01) {
+                	render(JSON_TYPE, CommonResponse.respFailJson("9999","录入的费用不能超过"+max_cost+"元", params.get("reqNo")), response);
+					return ;
+				}
+                
+                List<String> mime = new ArrayList<String>();
+				mime.add("image/jpeg");
+				mime.add("image/pjpeg");
+				mime.add("image/gif");
+				mime.add("image/png");
+				List<RequestFile> files = getFile(request, "pack_img", configInfo.getFile_root(), "/order/"+ DateUtils.formatDate(nowDate, "yyyyMMdd"),mime);
+				if (files.size()<1) {
+					render(JSON_TYPE, CommonResponse.respFailJson("9999","请添加一张单据图片", params.get("reqNo")), response);
+					return ;
+				}
+                
+                
+                double profit = max_cost-cost ;
+                double sub3_profit = profit/2 ;
+                double sub_profit  = profit = sub3_profit ;		
+                pack.setFeeTime(nowDate);
+                pack.setIsfee(1);
+                pack.setCost(cost);
+                pack.setSub3Profit(sub3_profit);
+                pack.setSubProfit(sub_profit);
+                pack.setImg("/slfile"+files.get(0).getFilePath());
+                
+                if (add) {
+                	orderPack = new OrderPack() ;
+    				orderPack.setCreateTime(nowDate);
+    				orderPack.setOrderNo(params.get("order_no"));
+    				orderPack.setPackNo(params.get("pack_no"));
+    				orderPack.setStatus(1);
+    				orderPack.setTrackId(0);
+    				orderPackService.save(orderPack);
+                	packService.save(pack);   
+				}
+                packService.costUpdate(pack);
+				render(JSON_TYPE, CommonResponse.respSuccessJson("","保存成功", params.get("reqNo")), response);   			
+			}else {
+				log.info("validate false!!!!");
+				render(JSON_TYPE, CommonResponse.respFailJson(ret.get("respCode"), ret.get("respMsg"), params.get("reqNo")),response);
+			}		
+		} catch (Exception e) {
+			e.printStackTrace();
+			render(JSON_TYPE, CommonResponse.respFailJson("9000","服务器异常", params.get("reqNo")), response);
+		}
+	}
+	
+
+
+}
+
+

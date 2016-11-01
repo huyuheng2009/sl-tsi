@@ -1,0 +1,33 @@
+package com.yogapay.couriertsi.api;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
+
+@Component
+public class ConfigInfo {
+
+	  
+	  @Value("#{config['file_root']}")
+	  private  String file_root ;
+	  @Value("#{config['tag_fix']}")
+	  private  String tag_fix ;
+
+	public String getFile_root() {
+		return file_root;
+	}
+
+	public void setFile_root(String file_root) {
+		this.file_root = file_root;
+	}
+
+	public String getTag_fix() {
+		return tag_fix;
+	}
+
+	public void setTag_fix(String tag_fix) {
+		this.tag_fix = tag_fix;
+	}
+	  
+
+	  
+}

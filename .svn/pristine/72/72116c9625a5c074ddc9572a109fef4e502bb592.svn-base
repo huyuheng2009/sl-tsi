@@ -1,0 +1,45 @@
+package com.yogapay.couriertsi.services;
+
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+
+import javax.annotation.Resource;
+
+import org.springframework.stereotype.Service;
+
+import com.yogapay.couriertsi.domain.PackConfig;
+import com.yogapay.couriertsi.domain.Route;
+import com.yogapay.couriertsi.utils.Dao;
+
+/**
+ * 用户service
+ * @author 
+ *
+ */
+@Service
+public class RouteService {
+
+	@Resource
+	private Dao dao ;
+
+	
+	public List<Map<String, Object>> getBySubstation(String take_sno,String send_sno) throws SQLException {
+		String sql = "select r.id AS route_id,r.route_text from route r where r.sub1=? and r.sub6=? limit 0,50";
+		List<Object> list = new ArrayList<Object>();
+		list.add(take_sno) ;
+		list.add(send_sno) ;
+		return dao.find(sql, list.toArray()) ;
+	}
+	
+	
+	public Route getById(String routeId) throws SQLException {
+		String sql = "select r.* from route r where r.id=? ";
+		List<Object> list = new ArrayList<Object>();
+		list.add(routeId) ;
+		return dao.findFirst(Route.class,sql, list.toArray()) ;
+	}
+
+
+}

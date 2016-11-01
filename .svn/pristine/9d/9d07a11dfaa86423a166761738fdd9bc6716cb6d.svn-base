@@ -1,0 +1,432 @@
+# 说明
+本接口使用 HTTP + JSON 方式进行调用。
+
+
+	30服务器接口地址：http://192.168.1.30:6161   
+####
+	respCode返回码说明：
+	-0010 - 接口请求成功，并有结果返回（其他返回码未返回正确结果）
+    -9000 - 未知访问
+    -9001 - 请求参数错误
+    -9002 - 用户名或密码错误
+
+
+# 目录
+
+1. [登录](#slapi_login)
+2. [订单大厅-可接单列表](#slapi_room_acptlist)
+3. [订单大厅-接单](#slapi_room_acpt)
+4. [订单大厅-搜索](#slapi_room_search)
+5. [待收件-待收件列表](#slapi_take_takelist)
+6. [订单-订单详情](#slapi_order_info)
+7. [订单-退回指派](#slapi_order_unacpt)
+8. [订单-拒收](#slapi_order_untake)
+9. [订单-vip查询](#slapi_order_vipinfo)
+10. [订单-寄件客户查询](#slapi_order_sendinfo)
+11. [订单-计算运费](#slapi_order_freight)
+12. [订单-获取运单号](#slapi_order_orderno)
+13. [订单-获取目的地网点](#slapi_order_sendstation)
+14. [订单-获取订单路线](#slapi_order_route)
+15. [订单-确认收件](#slapi_order_take)
+16. [图片上传-上传货物或问题件图片](#slapi_img_upload)
+17. [打包扫描-扫描上传](#slapi_packscan_scan)
+18. [打包扫描-扫描删除](#slapi_packscan_del)
+19. [查询车标号](#slapi_scan_carbanthno)
+20. [装车扫描-扫描上传](#slapi_takescan_scan)
+21. [到车扫描-扫描上传](#slapi_revscan_scan)
+22. [问题件扫描-扫描上传](#slapi_proscan_scan)
+23. [问题件扫描-原因列表](#slapi_proscan_reason)
+24. [派件扫描-扫描上传](#slapi_sendscan_scan)
+25. [签收扫描-签收](#slapi_signscan_sign)
+26. [获取订单刷卡预支付](#slapi_pospay_payid)
+27. [铁路运费录入-查询包单号](#slapi_railway_packinfo)
+28. [铁路运费录入-运费录入](#slapi_railway_freight)
+29. [个人中心-个人信息](#slapi_userinfo_index)
+30. [个人中心-清单查询](#slapi_userinfo_settlelist)
+31. [个人中心-清单批量结算](#slapi_userinfo_batchsettle)
+32. [个人中心-消息通知列表](#slapi_userinfo_msglist)
+33. [个人中心-消息通知已读](#slapi_userinfo_msgread)
+34. [个人中心-消息通知删除](#slapi_userinfo_msgdel)
+35. [个人中心-修改密码](#slapi_userinfo_upwd)
+
+# 接口
+
+##1. <a name="slapi_login">登录</a>
+#### 说明：
+#### URL：
+	/slapi/login
+#### 请求参数：
+	名称        类型(长度)     是否必需    说明
+    user_name       String         是          用户名
+	pass_word       String         是          密码  一次md5加密值
+#### 返回值：
+	{
+        respTime:"2016-02-02 02:02:02"，
+		isSuccess:true，
+		respNo:"1234"，
+		respCode:"0100"，            /* 返回码 */
+		respMsg:"登录成功"，           /* 返回提示文本 */
+		session_no:"2424124"，          /* 登录信息(小写) */
+		cod_rate:{                              //代收款规则
+				  cod_pay_min:12,
+				  cod_pay_max:123,              //
+				  cod_pay_fee:123             //服务费率，千分
+				},
+		valuation_rate:{                      //报价规则
+				  good_valuation_min:12,
+				  good_valuation_max:123,
+				  good_valuation_fee:123
+				},
+		vol_weight:123,                            //体积重参数
+		good_config:["1231","sdfs","sdf"],          //物品名称
+		pack_config:["1231","sdfs","sdf"],          //包装方式
+		bank_config:[{code:"1",bank_name:"招商银行"}],          //代收款银行
+		bill_config:["1231","sdfs","sdf"],          //回单方式
+		tags:["4332423","1213123123"]           //推送tags
+	}
+
+
+##2. <a name="slapi_room_acptlist">订单大厅-可接单列表</a>
+#### 说明：
+#### URL：
+	/slapi/room/acptlist
+#### 请求参数：
+	名称        类型(长度)     是否必需    说明
+	page_no         int            否          页码，默认第一页
+#### 返回值：
+	{
+        respTime:"2016-02-02 02:02:02"，
+		isSuccess:true，
+		respNo:"1234"，
+		respCode:"0100"，            /* 返回码 */
+		respMsg:""                 /* 返回提示文本 */
+		page_info:{
+			data:[{
+				order_id:"",
+				send_addr:"",
+				rev_addr:"",
+				order_time:"",
+				goods_name:""
+				}],
+				page_no:1,                       /* 页码 */
+           	    is_last:true,                    /*  是否最后一页  */
+			}
+	}
+
+##3. <a name="slapi_room_acpt">订单大厅-接单</a>
+#### 说明：
+#### URL：
+	/slapi/room/acpt
+#### 请求参数：
+	名称        类型(长度)     是否必需    说明
+    order_id        String         是          
+
+#### 返回值：
+	{
+        respTime:"2016-02-02 02:02:02"，
+		isSuccess:true，
+		respNo:"1234"，
+		respCode:"0100"，            /* 返回码 */
+		respMsg:""                 /* 返回提示文本 */
+	}
+
+
+
+##4. <a name="slapi_room_search">订单大厅-搜索</a>
+#### 说明：
+#### URL：
+	/slapi/room/search
+#### 请求参数：
+	名称        类型(长度)     是否必需    说明
+    keyval          String         是          //姓名或电话号码
+	page_no         int            否          页码，默认第一页
+#### 返回值：
+	{
+        respTime:"2016-02-02 02:02:02"，
+		isSuccess:true，
+		respNo:"1234"，
+		respCode:"0100"，            /* 返回码 */
+		respMsg:""                 /* 返回提示文本 */
+		page_info:{
+			data:[{
+				order_id:"",
+				send_addr:"",
+				rev_addr:"",
+				order_time:"",
+				goods_name:""
+				}],
+				page_no:1,                       /* 页码 */
+           	    is_last:true,                    /*  是否最后一页  */
+			}
+	}
+
+
+##5. <a name="slapi_take_takelist">待收件-待收件列表</a>
+#### 说明：
+#### URL：
+	/slapi/take/takelist
+#### 请求参数：
+	名称        类型(长度)     是否必需    说明
+	page_no         int         否          页码，默认第一页
+#### 返回值：
+	{
+        respTime:"2016-02-02 02:02:02"，
+		isSuccess:true，
+		respNo:"1234"，
+		respCode:"0100"，            /* 返回码 */
+		respMsg:""                 /* 返回提示文本 */
+			page_info:{
+			data:[{
+				order_id:"",
+				send_name:"",
+				send_tell:"",
+				send_addr:"",
+				rev_addr:"",
+				order_time:"",
+				goods_name:""
+				}],
+				page_no:1,                       /* 页码 */
+           	    is_last:true,                    /*  是否最后一页  */
+			}
+	}
+
+
+
+##6. <a name="slapi_order_info">订单-订单详情</a>
+#### 说明：
+#### URL：
+	/slapi/order/info
+#### 请求参数：
+	名称        类型(长度)     是否必需    说明
+	no_val     string         是        订单id或运单号
+	no_type       int         否        订单类型（1：订单id，2，运单号，其他默认运单号）
+#### 返回值：
+	{
+        respTime:"2016-02-02 02:02:02"，
+		isSuccess:true，
+		respNo:"1234"，
+		respCode:"0100"，            /* 返回码 */
+		respMsg:""                 /* 返回提示文本 */
+		order_info:{
+				order_id:"123123",
+				order_no:"95688899553255",
+				order_status:"1",    //状态：1待收件2已收件3待派件4派件中5已签收6拒收
+				vip_code:"VIP客户",
+				send_tell:"寄件电话",
+				send_name:"寄件人",
+				send_card:"身份证",
+				send_province_id:"省id",
+				send_city_id:"",
+				send_area_id:"",
+				send_street_id:"",
+				send_detail:"省-市-区-街道",
+				send_address:"详细地址",
+				rev_name:"收件人",
+				rev_tell:"收件电话",
+				rev_province_id:"",
+				rev_city_id:"",
+				rev_area_id:"",
+				rev_street_id:"",
+				rev_detail:"省-市-区-街道",
+				rev_address:"",
+				server_type:"1",         //1取货2送货
+				freight_type:"1",       //付款方式:1寄付2到付
+				take_money:"",         //收件时应收金额
+				send_money:"",        //派件时应收金额
+				package_type:"",     //包装
+				goods_name:"",       //物品名称
+				quantity:"",          //件数
+				weight_real:"",       //物品重量
+				weight_vol:"",       //体积重量
+				weight_charging:"",   //计费重量
+				freight:"",          //运费
+				freight_real:"",       //实际运费（vip折）
+				insured:"",                 //保价金额
+				insured_fee:"",             // 保价手续费
+				behalf:"",               //代收款
+				behalf_fee:"",          // 代收款手续费
+				order_note:""            //订单备注
+			}
+	}
+
+##7. <a name="slapi_order_unacpt">订单-退回指派</a>
+#### 说明：
+#### URL：
+	/slapi/order/unacpt
+#### 请求参数：
+	名称        类型(长度)     是否必需    说明
+    order_id        String         是          
+
+#### 返回值：
+	{
+        respTime:"2016-02-02 02:02:02"，
+		isSuccess:true，
+		respNo:"1234"，
+		respCode:"0100"，            /* 返回码 */
+		respMsg:""                 /* 返回提示文本 */
+	}
+
+
+##8. <a name="slapi_order_untake">订单-拒收</a>
+#### 说明：
+#### URL：
+	/slapi/order/untake
+#### 请求参数：
+	名称        类型(长度)     是否必需    说明
+    order_id        String         是         
+    order_note      String         是       备注（拒收原因）    
+
+#### 返回值：
+	{
+        respTime:"2016-02-02 02:02:02"，
+		isSuccess:true，
+		respNo:"1234"，
+		respCode:"0100"，            /* 返回码 */
+		respMsg:""                 /* 返回提示文本 */
+	}
+
+
+##9. <a name="slapi_order_vipinfo">订单-vip查询</a>
+#### 说明：
+#### URL：
+	/slapi/order/vipinfo
+#### 请求参数：
+	名称        类型(长度)     是否必需    说明
+	vip_code     string         是        
+
+#### 返回值：
+	{
+        respTime:"2016-02-02 02:02:02"，
+		isSuccess:true，
+		respNo:"1234"，
+		respCode:"0100"，            /* 返回码 */
+		respMsg:""                 /* 返回提示文本 */
+		vip_info:{
+				code:"123123",
+				tell:"95688899553255",
+				user_name:"张",    //
+				full_name:"VIP客户"
+			}
+	}
+
+
+##10. <a name="slapi_order_sendinfo">订单-寄件客户查询</a>
+#### 说明：
+#### URL：
+	/slapi/order/sendinfo
+#### 请求参数：
+	名称        类型(长度)     是否必需    说明
+	send_name     string         否         
+	send_tell     string         否       
+
+#### 返回值：
+	{
+        respTime:"2016-02-02 02:02:02"，
+		isSuccess:true，
+		respNo:"1234"，
+		respCode:"0100"，            /* 返回码 */
+		respMsg:""                 /* 返回提示文本 */
+		send_list:[{                    //最多返回50条
+				send_tell:"寄件电话",
+				send_name:"寄件人",
+				send_card:"身份证",
+				send_province_id:"省id",
+				send_city_id:"",
+				send_area_id:"",
+				send_street_id:"",
+				send_detail:"省-市-区-街道",
+				send_address:"详细地址"
+			}]
+	}
+
+
+##11. <a name="slapi_order_freight">订单-计算运费</a>
+#### 说明：
+#### URL：
+	/slapi/order/freight
+#### 请求参数：
+	名称        类型(长度)     是否必需    说明
+	route_id         int         是       路线id
+	freight_type     string      是       付款人
+    weight_charging  double      是       计费重量
+	goods_name       string      是       物品名称
+
+#### 返回值：
+	{
+        respTime:"2016-02-02 02:02:02"，
+		isSuccess:true，
+		respNo:"1234"，
+		respCode:"0100"，            /* 返回码 */
+		respMsg:"",                 /* 返回提示文本 */
+		freight:12.8
+	}
+
+
+##12. <a name="slapi_order_orderno">订单-获取运单号</a>
+#### 说明：
+#### URL：
+	/slapi/order/orderno
+#### 请求参数：
+	名称        类型(长度)     是否必需    说明
+
+
+#### 返回值：
+	{
+        respTime:"2016-02-02 02:02:02"，
+		isSuccess:true，
+		respNo:"1234"，
+		respCode:"0100"，            /* 返回码 */
+		respMsg:"",                 /* 返回提示文本 */
+		order_no:"9956622362222"
+	}
+
+
+##13. <a name="slapi_order_sendstation">订单-获取目的地网点</a>
+#### 说明：
+#### URL：
+	/slapi/order/sendstation
+#### 请求参数：
+	名称          类型(长度)     是否必需    说明
+	province_id     int         是        
+	city_id         int         是   
+	area_id         int         是 
+
+#### 返回值：
+	{
+        respTime:"2016-02-02 02:02:02"，
+		isSuccess:true，
+		respNo:"1234"，
+		respCode:"0100"，            /* 返回码 */
+		respMsg:""                 /* 返回提示文本 */
+		substation_list:[{                    //最多返回50条
+				substation_no:"123123",
+				substation_name:"网点名称"
+			}]
+	}
+
+
+##14. <a name="slapi_order_route">订单-获取订单路线</a>
+#### 说明：
+#### URL：
+	/slapi/order/route
+#### 请求参数：
+	名称          类型(长度)     是否必需    说明
+	send_sno     string         是          目的地网点
+
+#### 返回值：
+	{
+        respTime:"2016-02-02 02:02:02"，
+		isSuccess:true，
+		respNo:"1234"，
+		respCode:"0100"，            /* 返回码 */
+		respMsg:""                 /* 返回提示文本 */
+		route_list:[{                    //最多返回50条
+				route_id:12,
+				route_text:"X网点-XX区县-XX中转-xx中转-xx区县-xx网点"
+			}]
+	}
+
+
+
+
+

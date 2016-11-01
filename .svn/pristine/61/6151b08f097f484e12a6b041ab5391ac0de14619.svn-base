@@ -1,0 +1,121 @@
+package com.yogapay.couriertsi.api;
+
+import java.util.Date;
+import java.util.Map;
+
+import javax.annotation.Resource;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import org.springframework.context.annotation.Scope;
+import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+
+import com.yogapay.couriertsi.domain.BossUser;
+import com.yogapay.couriertsi.domain.OrderInfo;
+import com.yogapay.couriertsi.domain.OrderScan;
+import com.yogapay.couriertsi.domain.OrderTrack;
+import com.yogapay.couriertsi.services.BossUserService;
+import com.yogapay.couriertsi.services.ConfigService;
+import com.yogapay.couriertsi.services.OrderPackService;
+import com.yogapay.couriertsi.services.OrderProblemService;
+import com.yogapay.couriertsi.services.OrderScanService;
+import com.yogapay.couriertsi.services.OrderService;
+import com.yogapay.couriertsi.services.OrderTrackService;
+import com.yogapay.couriertsi.services.PackService;
+import com.yogapay.couriertsi.services.SubstationService;
+import com.yogapay.couriertsi.utils.CommonResponse;
+
+
+@Controller
+@RequestMapping(value="/sendscan")
+@Scope("prototype")
+public class SendScanApi extends BaseApi{
+	@Resource
+	private BossUserService bossUserService ;
+	@Resource
+	private OrderService orderService  ;
+	@Resource
+	private OrderProblemService orderProblemService ;
+	@Resource
+	private PackService packService  ;
+	@Resource
+	private OrderPackService orderPackService ;
+	@Resource
+	private ConfigService configService ;
+	@Resource
+	private SubstationService substationService ;
+	@Resource
+	private OrderTrackService orderTrackService ;
+	@Resource private OrderScanService orderScanService ;
+	 
+
+	@RequestMapping(value = "scan")	
+	public void scan(@RequestParam Map<String,String> params,HttpServletRequest request,HttpServletResponse response){
+		try {
+			Map<String, String> ret = validateRequest(request,new String[] {"order_no"}, true);
+			if ("TRUE".equals(ret.get("isSuccess"))) {
+				String userName = ret.get("userNo") ;
+                BossUser bossUser = bossUserService.getByUserName(userName) ;
+
+                Date nowDate = new Date() ;
+                
+                OrderInfo orderInfo = orderService.getByOrderNo(params.get("order_no")) ;
+                if (orderInfo==null) {
+			    	render(JSON_TYPE, CommonResponse.respFailJson("9999","运单号不存在", params.get("reqNo")), response);
+					return ;
+				}
+                if (orderInfo.getStatus()!=2) {
+                	render(JSON_TYPE, CommonResponse.respFailJson("9999","运单状态不正确", params.get("reqNo")), response);
+					return ;
+				}
+                if (!bossUser.getSno().equals(orderInfo.getSendSno())) {
+                	render(JSON_TYPE, CommonResponse.respFailJson("9999","当前站点和目的地网点不符", params.get("reqNo")), response);
+					return ;
+				}
+                
+                orderInfo.setSendTime(nowDate);
+                orderInfo.setStatus(4);
+                orderService.sendUpdate(orderInfo);
+
+				// 正在派送途中，请您准备签收，派件人：李四，电话：13714260001
+				OrderTrack orderTrack = new OrderTrack();
+				orderTrack.setOrderNo(params.get("order_no"));
+				orderTrack.setContext("正在派送途中，请您准备签收，派件人："+bossUser.getRealName()+",电话"+bossUser.getPhone());
+				orderTrack.setCompleted(0);
+				orderTrack.setCreateTime(nowDate);
+				orderTrack.setCurrentSubno(bossUser.getSno());
+				int id = (int) orderTrackService.save(orderTrack) ;
+				
+				
+				OrderScan orderScan = new OrderScan() ;
+                orderScan.setCarMark(null);
+                orderScan.setCreateTime(nowDate);
+                orderScan.setOpName(bossUser.getRealName());
+                orderScan.setOpSource(1);
+                orderScan.setOpType("send");
+                orderScan.setOrderNo(params.get("order_no"));
+                orderScan.setSub(bossUser.getSno());
+                orderScanService.save(orderScan) ;
+				
+
+				render(JSON_TYPE, CommonResponse.respSuccessJson("","上传成功", params.get("reqNo")), response);   			
+			}else {
+				log.info("validate false!!!!");
+				render(JSON_TYPE, CommonResponse.respFailJson(ret.get("respCode"), ret.get("respMsg"), params.get("reqNo")),response);
+			}		
+		} catch (Exception e) {
+			e.printStackTrace();
+			render(JSON_TYPE, CommonResponse.respFailJson("9000","服务器异常", params.get("reqNo")), response);
+		}
+	}
+
+
+
+	
+
+
+}
+
+

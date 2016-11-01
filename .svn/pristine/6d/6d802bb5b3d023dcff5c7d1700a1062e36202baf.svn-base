@@ -1,0 +1,45 @@
+package com.yogapay.couriertsi.utils;
+
+import java.util.HashMap;
+import java.util.Map;
+
+import com.yogapay.couriertsi.utils.http.HttpUtils;
+
+public class Kyfw12306Util {
+    
+	public static float simpleGet(String weight,String itemName,String sendSataion,String revStation)  {
+		 String url = "http://hyfw.12306.cn/gateway/hywx/TrainWebClient/yfss.action" ;
+		 Map<String, String> params = new HashMap<String, String>() ;
+		 params.put("yfss.ysfs", "2") ;
+		 params.put("yfss.hzpm", itemName) ;
+		 params.put("yfss.fzhzzm", sendSataion) ;
+		 params.put("yfss.dzhzzm", revStation) ;
+		 params.put("yfss.hwds", weight) ;
+		 params.put("yfss.qhlc", "") ;
+		 params.put("yfss.shlc", "") ;
+		 HttpUtils httpUtils = new HttpUtils() ;
+		 String json = "{\"zfy\":\"\",\"zlc\":\"\",\"success\":true,\"ydqx\":\"天\"}";
+		try {
+			json = httpUtils.post(url, params);
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		 Map<String, Object> retMap = JsonUtil.getMapFromJson(json) ;
+		 float ret = 0 ;
+		 boolean success  = false ;
+		 String zfy = "0" ;
+		 if (retMap!=null&&retMap.get("success")!=null&&Boolean.getBoolean(retMap.get("success").toString())) {
+			  success  = (Boolean) retMap.get("success") ;
+			  zfy = (String) retMap.get("zfy") ;
+		 }
+		 System.out.println(json);
+		return Float.valueOf(zfy) ;
+	}
+
+	
+	public static void main(String [] args) throws Exception {
+		System.out.println(simpleGet("10", "大米", "鸡西", "哈尔滨")); 
+	}
+	
+}

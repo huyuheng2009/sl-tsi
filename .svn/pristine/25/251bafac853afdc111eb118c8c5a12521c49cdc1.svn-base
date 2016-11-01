@@ -1,0 +1,69 @@
+package com.yogapay.couriertsi.services;
+
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+
+import javax.annotation.Resource;
+
+import org.springframework.stereotype.Service;
+
+import com.yogapay.couriertsi.domain.GoodConfig;
+import com.yogapay.couriertsi.domain.OrderPack;
+import com.yogapay.couriertsi.domain.Pack;
+import com.yogapay.couriertsi.utils.Dao;
+import com.yogapay.couriertsi.utils.DateUtils;
+
+/**
+ * 用户service
+ * @author 
+ *
+ */
+@Service
+public class OrderPackService {
+
+	@Resource
+	private Dao dao ;
+
+	
+	public void save(OrderPack orderPack) throws SQLException {
+		String sql = "insert into order_pack(order_no,track_id,pack_no,create_time,status) values (?,?,?,?,?) ";
+		List<Object> list = new ArrayList<Object>();
+		list.add(orderPack.getOrderNo()) ;
+		list.add(orderPack.getTrackId()) ;
+		list.add(orderPack.getPackNo()) ;
+		list.add(DateUtils.formatDate(orderPack.getCreateTime())) ;
+		list.add(orderPack.getStatus()) ;
+		dao.update(sql, list.toArray()) ;
+	}
+	
+	public OrderPack getByOrderNo(String orderNo) throws SQLException {
+		String sql = "select * from order_pack where  `order_no`=? ";
+		List<Object> list = new ArrayList<Object>();
+		list.add(orderNo) ;
+		return dao.findFirst(OrderPack.class, sql, list.toArray()) ;
+	}
+	
+	public List<String> getOrderNoByPackNo(String packNo) throws SQLException {
+		String sql = "select order_no from order_pack where  `pack_no`=? limit 0,200";
+		List<Object> list = new ArrayList<Object>();
+		list.add(packNo) ;
+		List<Map<String, Object>> ret = dao.find(sql, list.toArray()) ;
+		List<String> oList = new ArrayList<String>() ;
+		for (Map<String, Object> map:ret) {
+			oList.add(map.get("order_no").toString()) ;
+		}
+		return oList ;
+	}
+
+	
+	public void delByOrderNo(String orderNo) throws SQLException {
+		String sql = "delete from  order_pack where `order_no`=?";
+		List<Object> list = new ArrayList<Object>();
+		list.add(orderNo) ;
+		dao.update(sql, list.toArray()) ;
+	}
+	
+
+}
